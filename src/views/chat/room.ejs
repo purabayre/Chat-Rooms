@@ -1,0 +1,200 @@
+<%- include('../partials/header') %>
+
+<div class="chat-layout">
+  <aside class="chat-sidebar">
+    <div class="sidebar-header">
+      <h3>#<%= room.name %></h3>
+      <a href="/chat" class="btn btn-ghost btn-sm">← Rooms</a>
+    </div>
+
+    <% if (inviteToken) { %>
+    <div class="invite-section">
+      <p class="hint">Private — share this link:</p>
+      <div class="invite-copy-row">
+        <input type="text" id="invite-link" class="invite-link-input" readonly value="" />
+        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">Copy</button>
+      </div>
+    </div>
+    <% } %>
+
+    <div class="online-users-section">
+      <h4>Online <span id="online-count" class="online-count-badge">0</span></h4>
+      <ul id="online-list" class="online-list"></ul>
+    </div>
+  </aside>
+
+  <div class="chat-main">
+    <div class="messages-wrap" id="messages-wrap">
+      <div id="messages" class="messages">
+        <% messages.forEach(msg => { %>
+          <div class="message-row <%= msg.sender._id.toString() === currentUserId ? 'mine' : 'theirs' %>">
+            <img
+              src="<%= msg.sender.avatarPath || '/img/default-avatar.png' %>"
+              alt="<%= msg.sender.name %>"
+              class="avatar avatar-sm"
+            />
+            <div class="message-bubble-wrap">
+              <span class="message-sender"><%= msg.sender.name %></span>
+              <div class="message-bubble"><%= msg.text %></div>
+              <span class="message-time">
+                <%= new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) %>
+              </span>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="typing-indicator" id="typing-indicator"></div>
+
+    <div class="chat-input-bar">
+      <input
+        type="text"
+        id="msg-input"
+        class="chat-input"
+        placeholder="Type a message…"
+        autocomplete="off"
+        maxlength="2000"
+      />
+      <button id="send-btn" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const ROOM_ID      = '<%= room._id %>';
+const CURRENT_UID  = '<%= currentUserId %>';
+const INVITE_TOKEN = '<%= inviteToken || "" %>';
+
+if (INVITE_TOKEN) {
+  document.getElementById('invite-link').value =
+    location.origin + '/chat/rooms/' + ROOM_ID + '?token=' + INVITE_TOKEN;
+}
+
+function copyInviteLink() {
+  const link = document.getElementById('invite-link').value;
+  navigator.clipboard.writeText(link).then(() => alert('Copied!'));
+}
+
+const socket       = io();
+const messagesEl   = document.getElementById('messages');
+const wrapEl       = document.getElementById('messages-wrap');
+const inputEl      = document.getElementById('msg-input');
+const sendBtn      = document.getElementById('send-btn');
+const typingEl     = document.getElementById('typing-indicator');
+const onlineList   = document.getElementById('online-list');
+const onlineCount  = document.getElementById('online-count');
+
+function scrollBottom() { wrapEl.scrollTop = wrapEl.scrollHeight; }
+
+function formatTime(d) {
+  return new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function appendMessage(msg) {
+  const isMine = msg.sender._id === CURRENT_UID || String(msg.sender._id) === CURRENT_UID;
+  const row = document.createElement('div');
+  row.className = 'message-row ' + (isMine ? 'mine' : 'theirs');
+  row.innerHTML = `
+    <img src="${msg.sender.avatarPath || '/img/default-avatar.png'}"
+         alt="${escapeHtml(msg.sender.name)}" class="avatar avatar-sm" />
+    <div class="message-bubble-wrap">
+      <span class="message-sender">${escapeHtml(msg.sender.name)}</span>
+      <div class="message-bubble">${escapeHtml(msg.text)}</div>
+      <span class="message-time">${formatTime(msg.createdAt)}</span>
+    </div>`;
+  messagesEl.appendChild(row);
+  scrollBottom();
+}
+
+// ── Socket events ──────────────────────────────────────────────
+socket.emit('join-room', { roomId: ROOM_ID });
+
+socket.on('room-history', msgs => {
+  messagesEl.innerHTML = '';
+  msgs.forEach(appendMessage);
+  scrollBottom();
+});
+
+socket.on('new-message', appendMessage);
+
+socket.on('user-joined', ({ name }) => {
+  const el = document.createElement('div');
+  el.className = 'system-msg';
+  el.textContent = name + ' joined the room';
+  messagesEl.appendChild(el);
+  scrollBottom();
+});
+
+socket.on('user-left', ({ name }) => {
+  const el = document.createElement('div');
+  el.className = 'system-msg';
+  el.textContent = name + ' left the room';
+  messagesEl.appendChild(el);
+  scrollBottom();
+});
+
+const typingUsers = new Set();
+
+function renderTyping() {
+  if (!typingUsers.size) { typingEl.textContent = ''; return; }
+  const names = [...typingUsers].join(', ');
+  typingEl.textContent = names + (typingUsers.size === 1 ? ' is' : ' are') + ' typing…';
+}
+
+socket.on('typing',      ({ name }) => { typingUsers.add(name);    renderTyping(); });
+socket.on('stop-typing', ({ name }) => { typingUsers.delete(name); renderTyping(); });
+
+socket.on('online-users', users => {
+  onlineCount.textContent = users.length;
+  onlineList.innerHTML = users
+    .map(u => `<li class="online-user">${escapeHtml(u)}</li>`)
+    .join('');
+});
+
+// ── Send message ───────────────────────────────────────────────
+function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  socket.emit('send-message', { roomId: ROOM_ID, text });
+  inputEl.value = '';
+  socket.emit('stop-typing', { roomId: ROOM_ID });
+}
+
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ── Typing detection ───────────────────────────────────────────
+let isTyping = false;
+let typingTimer;
+
+inputEl.addEventListener('input', () => {
+  if (!isTyping) {
+    isTyping = true;
+    socket.emit('typing', { roomId: ROOM_ID });
+  }
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    isTyping = false;
+    socket.emit('stop-typing', { roomId: ROOM_ID });
+  }, 2000);
+});
+
+window.addEventListener('beforeunload', () => {
+  socket.emit('leave-room', { roomId: ROOM_ID });
+});
+
+scrollBottom();
+</script>
+
+<%- include('../partials/footer') %>

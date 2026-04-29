@@ -1,0 +1,48 @@
+<%- include('../partials/header') %>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <h2>Edit profile</h2>
+
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+    <% if (success) { %>
+      <div class="alert alert-success"><%= success %></div>
+    <% } %>
+
+    <div class="profile-avatar-preview">
+      <img
+        src="<%= user.avatarPath || '/img/default-avatar.png' %>"
+        alt="Your avatar"
+        class="avatar avatar-lg"
+        id="avatar-preview"
+      />
+    </div>
+
+    <form action="/auth/profile" method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="name">Display name</label>
+        <input type="text" id="name" name="name" value="<%= user.name %>" required maxlength="50" />
+      </div>
+      <div class="form-group">
+        <label for="avatar">New avatar <span class="hint">(optional, max 2MB)</span></label>
+        <input type="file" id="avatar" name="avatar" accept="image/*" onchange="previewAvatar(this)" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Save changes</button>
+    </form>
+    <p class="auth-alt"><a href="/chat">← Back to rooms</a></p>
+  </div>
+</div>
+
+<script>
+function previewAvatar(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => document.getElementById('avatar-preview').src = e.target.result;
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+</script>
+
+<%- include('../partials/footer') %>
