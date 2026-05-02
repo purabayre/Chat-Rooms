@@ -25,6 +25,18 @@ function removeMember(roomId, socketId) {
   if (map.size === 0) roomMembers.delete(roomId);
 }
 
+/* ✅ NEW HELPER: find user by username inside a room */
+function findUserByName(roomId, name) {
+  if (!roomMembers.has(roomId)) return null;
+
+  for (const member of roomMembers.get(roomId).values()) {
+    if (member.userName.toLowerCase() === name.toLowerCase()) {
+      return member;
+    }
+  }
+  return null;
+}
+
 module.exports = (io, session) => {
   io.use(socketSession(session, { autoSave: true }));
 
@@ -117,7 +129,6 @@ module.exports = (io, session) => {
           .sort({ createdAt: -1 })
           .limit(50);
 
-        // ✅ FIXED HERE (ONLY CHANGE)
         const hasMore = messages.length === 50;
 
         const trimmedMessages = messages.slice(0, 50);
@@ -159,6 +170,22 @@ module.exports = (io, session) => {
       if (!clean) return;
 
       try {
+        /* ✅ NEW: detect mentions */
+        const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+        let match;
+        const mentionedUsersMap = new Map(); // prevent duplicates
+
+        while ((match = mentionRegex.exec(clean)) !== null) {
+          const username = match[1];
+          const user = findUserByName(roomId, username);
+
+          if (user) {
+            mentionedUsersMap.set(user.userId.toString(), user);
+          }
+        }
+
+        const mentionedUsers = [...mentionedUsersMap.values()];
+
         const message = await Message.create({
           room: roomId,
           sender: userId,
@@ -175,6 +202,15 @@ module.exports = (io, session) => {
           reactions: {},
           createdAt: populated.createdAt,
         });
+
+        /* ✅ NEW: send private mention notifications */
+        for (const user of mentionedUsers) {
+          io.to(user.socketId).emit("mention-notification", {
+            roomId,
+            message: clean,
+            from: currentUser.name,
+          });
+        }
       } catch (err) {
         console.error("message error", err);
       }

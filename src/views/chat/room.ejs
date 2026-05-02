@@ -255,6 +255,19 @@
   margin-top: 2px;
 }
 
+.mention {
+  background: #ffeaa7;
+  color: #2d3436;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.message-row.mine .mention {
+  background: rgba(255,255,255,0.3);
+  color: #fff;
+}
+
 </style>
 
 <div class="chat-layout">
@@ -336,8 +349,6 @@
 
 <script src="/socket.io/socket.io.js"></script>
 
-<script src="/socket.io/socket.io.js"></script>
-
 <script>
 const ROOM_ID      = '<%= room._id %>';
 const CURRENT_UID  = '<%= currentUserId %>';
@@ -364,6 +375,9 @@ let hasMore = true;
 let oldestMessageTime = null;
 let loadingOlder = false;
 
+/* ✅ FIX: prevent duplicate rendering */
+let initialLoaded = false;
+
 const loadMoreBtn = document.getElementById("load-more-btn");
 
 function scrollBottom() { wrapEl.scrollTop = wrapEl.scrollHeight; }
@@ -377,6 +391,13 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function formatMentions(text) {
+  return escapeHtml(text).replace(
+    /@([a-zA-Z0-9_]+)/g,
+    '<span class="mention">@$1</span>'
+  );
 }
 
 function appendMessage(msg) {
@@ -398,7 +419,7 @@ function appendMessage(msg) {
       </div>
 
       <div class="message-bubble" data-id="${msg._id}">
-        ${escapeHtml(msg.text)}
+        ${formatMentions(msg.text)}
       </div>
 
       <div class="reactions" id="react-${msg._id}"></div>
@@ -412,7 +433,6 @@ function appendMessage(msg) {
   renderReactions(msg._id, msg.reactions || {});
 }
 
-/* ✅ NEW FUNCTION */
 function prependMessage(msg) {
   const isMine = msg.sender._id === CURRENT_UID || String(msg.sender._id) === CURRENT_UID;
 
@@ -432,7 +452,7 @@ function prependMessage(msg) {
       </div>
 
       <div class="message-bubble">
-        ${escapeHtml(msg.text)}
+        ${formatMentions(msg.text)}
       </div>
 
       <div class="reactions" id="react-${msg._id}"></div>
@@ -473,18 +493,17 @@ function renderReactions(messageId, reactions) {
 
 socket.emit("join-room", { roomId: ROOM_ID });
 
+/* ✅ FIX APPLIED HERE */
 socket.on("room-history", (data) => {
+  if (initialLoaded) return;
+  initialLoaded = true;
+
   const { messages, hasMore: more, nextBefore } = data;
 
   hasMore = more;
   oldestMessageTime = nextBefore;
-
-  messages.forEach((msg) => {
-    appendMessage(msg);
-  });
 });
 
-/* ✅ FIXED EMIT */
 function loadOlderMessages() {
   if (!oldestMessageTime) return;
 
@@ -509,7 +528,6 @@ loadMoreBtn.addEventListener("click", () => {
   loadOlderMessages();
 });
 
-/* ✅ NEW LISTENER */
 socket.on("older-messages", (data) => {
   const { messages, hasMore: more, nextBefore } = data;
 
@@ -543,6 +561,10 @@ socket.on("stop-typing", () => {
   typingEl.textContent = "";
 });
 
+socket.on("mention-notification", ({ from, message }) => {
+  alert(`@mention from ${from}: ${message}`);
+});
+
 function sendMessage() {
   const text = inputEl.value.trim();
   if (!text) return;
@@ -573,5 +595,3 @@ inputEl.addEventListener("input", () => {
   }, 1000);
 });
 </script>
-
-<%- include('../partials/footer')%>
