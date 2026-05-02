@@ -1,5 +1,196 @@
 <%- include('../partials/header') %>
 
+<style>
+
+.rooms-layout {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  background: #f5f7fa;
+  min-height: 90vh;
+  font-family: Arial, sans-serif;
+}
+
+
+.rooms-sidebar {
+  width: 280px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  height: fit-content;
+}
+
+.rooms-sidebar h3 {
+  margin-bottom: 15px;
+}
+
+
+.rooms-main {
+  flex: 1;
+}
+
+.rooms-main h2 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.form-group input[type="text"] {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  border-color: #4a90e2;
+  outline: none;
+}
+
+.checkbox-group label {
+  font-size: 14px;
+  color: #444;
+}
+
+
+.btn {
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #4a90e2;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #357abd;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.btn-ghost {
+  background: #eef3f8;
+  color: #333;
+}
+
+.btn-ghost:hover {
+  background: #dde7f0;
+}
+
+
+.alert-error {
+  background: #ffe5e5;
+  color: #d8000c;
+  padding: 8px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 15px;
+}
+
+
+.room-card {
+  display: block;
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 5px 14px rgba(0,0,0,0.05);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.room-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+.room-card-private {
+  border: 1px solid #e0e6ed;
+  background: #fafcff;
+}
+
+
+.room-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.room-name {
+  font-weight: bold;
+  color: #333;
+}
+
+.room-online-badge {
+  font-size: 12px;
+  background: #e6f4ea;
+  color: #2e7d32;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+
+.room-card-meta {
+  font-size: 12px;
+  color: #777;
+  display: flex;
+  justify-content: space-between;
+}
+
+
+.invite-link-wrap {
+  margin-top: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.invite-link-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+
+.empty-state {
+  color: #777;
+  font-style: italic;
+}
+</style>
+
 <div class="rooms-layout">
   <aside class="rooms-sidebar">
     <h3>New room</h3>
