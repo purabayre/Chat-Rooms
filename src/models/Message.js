@@ -18,6 +18,11 @@ const messageSchema = new mongoose.Schema(
       required: true,
       maxlength: 2000,
     },
+    reactions: {
+      type: Map,
+      of: [mongoose.Schema.Types.ObjectId],
+      default: {},
+    },
   },
   { timestamps: true },
 );

@@ -1,7 +1,7 @@
 <%- include('../partials/header') %>
 
 <style>
-/* Layout */
+
 .chat-layout {
   display: flex;
   height: 90vh;
@@ -9,7 +9,7 @@
   font-family: Arial, sans-serif;
 }
 
-/* Sidebar */
+
 .chat-sidebar {
   width: 260px;
   background: #ffffff;
@@ -49,7 +49,7 @@
   border-radius: 5px;
 }
 
-/* Online users */
+
 .online-users-section h4 {
   margin-bottom: 8px;
 }
@@ -74,14 +74,14 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
-/* Main chat */
+
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-/* Messages */
+
 .messages-wrap {
   flex: 1;
   overflow-y: auto;
@@ -110,7 +110,7 @@
   border-radius: 50%;
 }
 
-/* Bubble */
+
 .message-bubble-wrap {
   max-width: 65%;
 }
@@ -141,21 +141,21 @@
   display: block;
 }
 
-/* System msg */
+
 .system-msg {
   text-align: center;
   font-size: 12px;
   color: #888;
 }
 
-/* Typing */
+
 .typing-indicator {
   font-size: 12px;
   color: #777;
   padding: 5px 15px;
 }
 
-/* Input */
+
 .chat-input-bar {
   display: flex;
   padding: 10px;
@@ -177,7 +177,7 @@
   border-color: #4a90e2;
 }
 
-/* Buttons */
+
 .btn {
   padding: 8px 12px;
   border-radius: 6px;
@@ -206,6 +206,56 @@
   font-size: 12px;
   padding: 5px 8px;
 }
+
+.message-bubble-wrap {
+  max-width: 65%;
+  position: relative;
+}
+
+/* hover popup */
+.reaction-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  transform: translateY(-5px);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 4px 8px;
+  display: flex;
+  gap: 6px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.2s;
+}
+
+.message-bubble-wrap:hover .reaction-popup {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reaction-popup button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.reaction-pill {
+  display: inline-block;
+  background: #eef3f8;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin-right: 4px;
+  margin-top: 4px;
+}
+
+.reactions {
+  margin-top: 2px;
+}
+
 </style>
 
 <div class="chat-layout">
@@ -243,7 +293,19 @@
             />
             <div class="message-bubble-wrap">
               <span class="message-sender"><%= msg.sender.name %></span>
+
+              <!-- hover popup -->
+              <div class="reaction-popup">
+                <button onclick="react('<%= msg._id %>', '👍')">👍</button>
+                <button onclick="react('<%= msg._id %>', '❤️')">❤️</button>
+                <button onclick="react('<%= msg._id %>', '😂')">😂</button>
+              </div>
+
               <div class="message-bubble"><%= msg.text %></div>
+
+              <!-- reactions below message -->
+              <div class="reactions" id="react-<%= msg._id %>"></div>
+
               <span class="message-time">
                 <%= new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) %>
               </span>
@@ -291,8 +353,6 @@ const wrapEl       = document.getElementById('messages-wrap');
 const inputEl      = document.getElementById('msg-input');
 const sendBtn      = document.getElementById('send-btn');
 const typingEl     = document.getElementById('typing-indicator');
-const onlineList   = document.getElementById('online-list');
-const onlineCount  = document.getElementById('online-count');
 
 function scrollBottom() { wrapEl.scrollTop = wrapEl.scrollHeight; }
 
@@ -309,21 +369,115 @@ function escapeHtml(str) {
 
 function appendMessage(msg) {
   const isMine = msg.sender._id === CURRENT_UID || String(msg.sender._id) === CURRENT_UID;
+
   const row = document.createElement('div');
   row.className = 'message-row ' + (isMine ? 'mine' : 'theirs');
+
   row.innerHTML = `
     <img src="${msg.sender.avatarPath || '/img/default-avatar.png'}"
          alt="${escapeHtml(msg.sender.name)}" class="avatar avatar-sm" />
     <div class="message-bubble-wrap">
       <span class="message-sender">${escapeHtml(msg.sender.name)}</span>
-      <div class="message-bubble">${escapeHtml(msg.text)}</div>
+
+      <div class="reaction-popup">
+        <button onclick="react('${msg._id}', '👍')">👍</button>
+        <button onclick="react('${msg._id}', '❤️')">❤️</button>
+        <button onclick="react('${msg._id}', '😂')">😂</button>
+      </div>
+
+      <div class="message-bubble" data-id="${msg._id}">
+        ${escapeHtml(msg.text)}
+      </div>
+
+      <div class="reactions" id="react-${msg._id}"></div>
+
       <span class="message-time">${formatTime(msg.createdAt)}</span>
     </div>`;
+
   messagesEl.appendChild(row);
   scrollBottom();
+
+  renderReactions(msg._id, msg.reactions || {});
 }
 
-// socket logic unchanged...
+function react(messageId, emoji) {
+  socket.emit("react-message", {
+    roomId: ROOM_ID,
+    messageId,
+    emoji
+  });
+}
+
+function renderReactions(messageId, reactions) {
+  const container = document.getElementById(`react-${messageId}`);
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  for (let emoji in reactions) {
+    const count = reactions[emoji];
+
+    const span = document.createElement("span");
+    span.className = "reaction-pill";
+    span.textContent = `${emoji} ${count}`;
+
+    container.appendChild(span);
+  }
+}
+
+socket.emit("join-room", { roomId: ROOM_ID });
+
+socket.on("new-message", (msg) => {
+  appendMessage(msg);
+});
+
+socket.on("message-reacted", ({ messageId, reactions }) => {
+  renderReactions(messageId, reactions);
+});
+
+socket.on("typing", ({ name }) => {
+  typingEl.textContent = name + " is typing...";
+});
+
+socket.on("stop-typing", () => {
+  typingEl.textContent = "";
+});
+
+function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  socket.emit("send-message", {
+    roomId: ROOM_ID,
+    text
+  });
+
+  socket.emit("stop-typing", { roomId: ROOM_ID });
+  inputEl.value = "";
+}
+
+sendBtn.addEventListener("click", sendMessage);
+
+inputEl.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
+let typingTimeout;
+
+inputEl.addEventListener("input", () => {
+  socket.emit("typing", { roomId: ROOM_ID });
+
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    socket.emit("stop-typing", { roomId: ROOM_ID });
+  }, 1000);
+});
+
+
+// <% messages.forEach(msg => { %>
+//   renderReactions("<%= msg._id %>", <%- JSON.stringify(msg.reactions || {}) %>);
+// <% }) %>
+
 </script>
 
 <%- include('../partials/footer') %>

@@ -83,6 +83,12 @@ module.exports = (io, session) => {
           .sort({ createdAt: -1 })
           .limit(50)
           .lean();
+
+        // ✅ ensure reactions always exist
+        messages.forEach((m) => {
+          if (!m.reactions) m.reactions = {};
+        });
+
         messages.reverse();
         socket.emit("room-history", messages);
       } catch (err) {
@@ -108,17 +114,44 @@ module.exports = (io, session) => {
           room: roomId,
           sender: userId,
           text: clean,
+          reactions: {}, // ✅ initialize reactions
         });
+
         const populated = await message.populate("sender", "name avatarPath");
 
         io.to(roomId).emit("new-message", {
           _id: populated._id,
           sender: populated.sender,
           text: populated.text,
+          reactions: populated.reactions || {}, // ✅ send reactions
           createdAt: populated.createdAt,
         });
       } catch (err) {
         console.error("message error", err);
+      }
+    });
+
+    // ── 🆕 react-message ───────────────────────────────────────
+    socket.on("react-message", async ({ messageId, emoji }) => {
+      if (!messageId || !emoji) return;
+
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) return;
+
+        if (!msg.reactions) msg.reactions = new Map();
+
+        const current = msg.reactions.get(emoji) || 0;
+        msg.reactions.set(emoji, current + 1);
+
+        await msg.save();
+
+        io.to(msg.room.toString()).emit("message-reaction-updated", {
+          messageId,
+          reactions: Object.fromEntries(msg.reactions), // convert Map → object
+        });
+      } catch (err) {
+        console.error("reaction error", err);
       }
     });
 
