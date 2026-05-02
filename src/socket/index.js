@@ -3,38 +3,26 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const sanitizeHtml = require("sanitize-html");
 
-// roomId -> Set of { socketId, userId, userName, avatarPath }
 const roomMembers = new Map();
 
 function getRoomUsers(roomId) {
   return roomMembers.has(roomId)
-    ? [...roomMembers.get(roomId)].map((m) => m.userName)
+    ? [...roomMembers.get(roomId).values()].map((m) => m.userName)
     : [];
 }
 
 function addMember(roomId, info) {
-  if (!roomMembers.has(roomId)) roomMembers.set(roomId, new Set());
-  roomMembers.get(roomId).add(info);
+  if (!roomMembers.has(roomId)) roomMembers.set(roomId, new Map());
+  roomMembers.get(roomId).set(info.socketId, info);
 }
 
 function removeMember(roomId, socketId) {
   if (!roomMembers.has(roomId)) return;
-  const set = roomMembers.get(roomId);
-  for (const m of set) {
-    if (m.socketId === socketId) {
-      set.delete(m);
-      break;
-    }
-  }
-  if (set.size === 0) roomMembers.delete(roomId);
-}
 
-function findMember(roomId, socketId) {
-  if (!roomMembers.has(roomId)) return null;
-  for (const m of roomMembers.get(roomId)) {
-    if (m.socketId === socketId) return m;
-  }
-  return null;
+  const map = roomMembers.get(roomId);
+  map.delete(socketId);
+
+  if (map.size === 0) roomMembers.delete(roomId);
 }
 
 module.exports = (io, session) => {
@@ -61,36 +49,52 @@ module.exports = (io, session) => {
       return;
     }
 
-    // ── join-room ──────────────────────────────────────────────
-    socket.on("join-room", async ({ roomId }) => {
+    socket.on("join-room", async ({ roomId, before }) => {
       if (!roomId) return;
 
       socket.join(roomId);
       currentRooms.add(roomId);
 
-      const memberInfo = {
+      addMember(roomId, {
         socketId: socket.id,
         userId,
         userName: currentUser.name,
         avatarPath: currentUser.avatarPath,
-      };
-      addMember(roomId, memberInfo);
+      });
 
-      // send history
       try {
-        const messages = await Message.find({ room: roomId })
+        const query = { room: roomId };
+
+        if (before) {
+          query.createdAt = { $lt: new Date(before) };
+        }
+
+        const messages = await Message.find(query)
           .populate("sender", "name avatarPath")
           .sort({ createdAt: -1 })
-          .limit(50)
-          .lean();
+          .limit(50);
 
-        // ✅ ensure reactions always exist
-        messages.forEach((m) => {
-          if (!m.reactions) m.reactions = {};
+        const cleanMessages = messages.map((m) => {
+          const obj = m.toObject();
+
+          if (!obj.reactions) {
+            obj.reactions = {};
+          } else if (obj.reactions instanceof Map) {
+            obj.reactions = Object.fromEntries(obj.reactions);
+          }
+
+          return obj;
         });
 
-        messages.reverse();
-        socket.emit("room-history", messages);
+        cleanMessages.reverse();
+
+        socket.emit("room-history", {
+          messages: cleanMessages,
+          hasMore: messages.length === 50,
+          nextBefore: messages.length
+            ? messages[messages.length - 1].createdAt
+            : null,
+        });
       } catch (err) {
         console.error("history error", err);
       }
@@ -99,7 +103,51 @@ module.exports = (io, session) => {
       io.to(roomId).emit("online-users", getRoomUsers(roomId));
     });
 
-    // ── send-message ───────────────────────────────────────────
+    socket.on("load-older-messages", async ({ roomId, before }) => {
+      if (!roomId || !before) return;
+
+      try {
+        const query = {
+          room: roomId,
+          createdAt: { $lt: new Date(before) },
+        };
+
+        const messages = await Message.find(query)
+          .populate("sender", "name avatarPath")
+          .sort({ createdAt: -1 })
+          .limit(50);
+
+        // ✅ FIXED HERE (ONLY CHANGE)
+        const hasMore = messages.length === 50;
+
+        const trimmedMessages = messages.slice(0, 50);
+
+        const cleanMessages = trimmedMessages.map((m) => {
+          const obj = m.toObject();
+
+          if (!obj.reactions) {
+            obj.reactions = {};
+          } else if (obj.reactions instanceof Map) {
+            obj.reactions = Object.fromEntries(obj.reactions);
+          }
+
+          return obj;
+        });
+
+        cleanMessages.reverse();
+
+        socket.emit("older-messages", {
+          messages: cleanMessages,
+          hasMore,
+          nextBefore: trimmedMessages.length
+            ? trimmedMessages[trimmedMessages.length - 1].createdAt
+            : null,
+        });
+      } catch (err) {
+        console.error("load older messages error:", err);
+      }
+    });
+
     socket.on("send-message", async ({ roomId, text }) => {
       if (!roomId || !text) return;
 
@@ -107,6 +155,7 @@ module.exports = (io, session) => {
         allowedTags: [],
         allowedAttributes: {},
       }).trim();
+
       if (!clean) return;
 
       try {
@@ -114,7 +163,7 @@ module.exports = (io, session) => {
           room: roomId,
           sender: userId,
           text: clean,
-          reactions: {}, // ✅ initialize reactions
+          reactions: new Map(),
         });
 
         const populated = await message.populate("sender", "name avatarPath");
@@ -123,7 +172,7 @@ module.exports = (io, session) => {
           _id: populated._id,
           sender: populated.sender,
           text: populated.text,
-          reactions: populated.reactions || {}, // ✅ send reactions
+          reactions: {},
           createdAt: populated.createdAt,
         });
       } catch (err) {
@@ -131,7 +180,6 @@ module.exports = (io, session) => {
       }
     });
 
-    // ── 🆕 react-message ───────────────────────────────────────
     socket.on("react-message", async ({ messageId, emoji }) => {
       if (!messageId || !emoji) return;
 
@@ -139,23 +187,45 @@ module.exports = (io, session) => {
         const msg = await Message.findById(messageId);
         if (!msg) return;
 
-        if (!msg.reactions) msg.reactions = new Map();
+        if (!msg.reactions) {
+          msg.reactions = new Map();
+        }
 
-        const current = msg.reactions.get(emoji) || 0;
-        msg.reactions.set(emoji, current + 1);
+        const userIdStr = userId.toString();
+
+        let users = msg.reactions.get(emoji);
+
+        if (!Array.isArray(users)) {
+          users = [];
+        }
+
+        const index = users.indexOf(userIdStr);
+
+        if (index > -1) {
+          users.splice(index, 1);
+        } else {
+          users.push(userIdStr);
+        }
+
+        if (users.length === 0) {
+          msg.reactions.delete(emoji);
+        } else {
+          msg.reactions.set(emoji, users);
+        }
 
         await msg.save();
 
+        const formattedReactions = Object.fromEntries(msg.reactions || []);
+
         io.to(msg.room.toString()).emit("message-reaction-updated", {
           messageId,
-          reactions: Object.fromEntries(msg.reactions), // convert Map → object
+          reactions: formattedReactions,
         });
       } catch (err) {
-        console.error("reaction error", err);
+        console.error("reaction error:", err);
       }
     });
 
-    // ── typing indicators ──────────────────────────────────────
     socket.on("typing", ({ roomId }) => {
       if (!roomId) return;
       socket.to(roomId).emit("typing", { name: currentUser.name });
@@ -166,13 +236,11 @@ module.exports = (io, session) => {
       socket.to(roomId).emit("stop-typing", { name: currentUser.name });
     });
 
-    // ── leave-room ─────────────────────────────────────────────
     socket.on("leave-room", ({ roomId }) => {
       if (!roomId) return;
       handleLeave(roomId);
     });
 
-    // ── disconnect ─────────────────────────────────────────────
     socket.on("disconnect", () => {
       for (const roomId of currentRooms) {
         handleLeave(roomId);

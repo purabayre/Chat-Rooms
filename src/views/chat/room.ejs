@@ -212,10 +212,9 @@
   position: relative;
 }
 
-/* hover popup */
 .reaction-popup {
   position: absolute;
-  bottom: 100%;
+  bottom: 60%;
   left: 0;
   transform: translateY(-5px);
   background: #fff;
@@ -282,7 +281,13 @@
   </aside>
 
   <div class="chat-main">
+
     <div class="messages-wrap" id="messages-wrap">
+
+      <button id="load-more-btn" class="btn btn-ghost btn-sm" style="width:100%; margin-bottom:10px;">
+        Load older messages
+      </button>
+
       <div id="messages" class="messages">
         <% messages.forEach(msg => { %>
           <div class="message-row <%= msg.sender._id.toString() === currentUserId ? 'mine' : 'theirs' %>">
@@ -294,7 +299,6 @@
             <div class="message-bubble-wrap">
               <span class="message-sender"><%= msg.sender.name %></span>
 
-              <!-- hover popup -->
               <div class="reaction-popup">
                 <button onclick="react('<%= msg._id %>', '👍')">👍</button>
                 <button onclick="react('<%= msg._id %>', '❤️')">❤️</button>
@@ -303,7 +307,6 @@
 
               <div class="message-bubble"><%= msg.text %></div>
 
-              <!-- reactions below message -->
               <div class="reactions" id="react-<%= msg._id %>"></div>
 
               <span class="message-time">
@@ -332,6 +335,9 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
+<script src="/socket.io/socket.io.js"></script>
+
 <script>
 const ROOM_ID      = '<%= room._id %>';
 const CURRENT_UID  = '<%= currentUserId %>';
@@ -353,6 +359,12 @@ const wrapEl       = document.getElementById('messages-wrap');
 const inputEl      = document.getElementById('msg-input');
 const sendBtn      = document.getElementById('send-btn');
 const typingEl     = document.getElementById('typing-indicator');
+
+let hasMore = true;
+let oldestMessageTime = null;
+let loadingOlder = false;
+
+const loadMoreBtn = document.getElementById("load-more-btn");
 
 function scrollBottom() { wrapEl.scrollTop = wrapEl.scrollHeight; }
 
@@ -400,6 +412,39 @@ function appendMessage(msg) {
   renderReactions(msg._id, msg.reactions || {});
 }
 
+/* ✅ NEW FUNCTION */
+function prependMessage(msg) {
+  const isMine = msg.sender._id === CURRENT_UID || String(msg.sender._id) === CURRENT_UID;
+
+  const row = document.createElement('div');
+  row.className = 'message-row ' + (isMine ? 'mine' : 'theirs');
+
+  row.innerHTML = `
+    <img src="${msg.sender.avatarPath || '/img/default-avatar.png'}"
+         alt="${escapeHtml(msg.sender.name)}" class="avatar avatar-sm" />
+    <div class="message-bubble-wrap">
+      <span class="message-sender">${escapeHtml(msg.sender.name)}</span>
+
+      <div class="reaction-popup">
+        <button onclick="react('${msg._id}', '👍')">👍</button>
+        <button onclick="react('${msg._id}', '❤️')">❤️</button>
+        <button onclick="react('${msg._id}', '😂')">😂</button>
+      </div>
+
+      <div class="message-bubble">
+        ${escapeHtml(msg.text)}
+      </div>
+
+      <div class="reactions" id="react-${msg._id}"></div>
+
+      <span class="message-time">${formatTime(msg.createdAt)}</span>
+    </div>`;
+
+  messagesEl.prepend(row);
+
+  renderReactions(msg._id, msg.reactions || {});
+}
+
 function react(messageId, emoji) {
   socket.emit("react-message", {
     roomId: ROOM_ID,
@@ -415,7 +460,8 @@ function renderReactions(messageId, reactions) {
   container.innerHTML = "";
 
   for (let emoji in reactions) {
-    const count = reactions[emoji];
+    const users = reactions[emoji];
+    const count = users.length;
 
     const span = document.createElement("span");
     span.className = "reaction-pill";
@@ -427,11 +473,65 @@ function renderReactions(messageId, reactions) {
 
 socket.emit("join-room", { roomId: ROOM_ID });
 
+socket.on("room-history", (data) => {
+  const { messages, hasMore: more, nextBefore } = data;
+
+  hasMore = more;
+  oldestMessageTime = nextBefore;
+
+  messages.forEach((msg) => {
+    appendMessage(msg);
+  });
+});
+
+/* ✅ FIXED EMIT */
+function loadOlderMessages() {
+  if (!oldestMessageTime) return;
+
+  loadingOlder = true;
+  loadMoreBtn.disabled = true;
+  loadMoreBtn.innerText = "Loading...";
+
+  socket.emit("load-older-messages", {
+    roomId: ROOM_ID,
+    before: oldestMessageTime
+  });
+
+  setTimeout(() => {
+    loadingOlder = false;
+    loadMoreBtn.disabled = false;
+    loadMoreBtn.innerText = "Load older messages";
+  }, 500);
+}
+
+loadMoreBtn.addEventListener("click", () => {
+  if (!hasMore || loadingOlder) return;
+  loadOlderMessages();
+});
+
+/* ✅ NEW LISTENER */
+socket.on("older-messages", (data) => {
+  const { messages, hasMore: more, nextBefore } = data;
+
+  hasMore = more;
+  oldestMessageTime = nextBefore;
+
+  if (!messages.length) return;
+
+  const prevScrollHeight = wrapEl.scrollHeight;
+
+  messages.forEach((msg) => {
+    prependMessage(msg);
+  });
+
+  wrapEl.scrollTop = wrapEl.scrollHeight - prevScrollHeight;
+});
+
 socket.on("new-message", (msg) => {
   appendMessage(msg);
 });
 
-socket.on("message-reacted", ({ messageId, reactions }) => {
+socket.on("message-reaction-updated", ({ messageId, reactions }) => {
   renderReactions(messageId, reactions);
 });
 
@@ -472,12 +572,6 @@ inputEl.addEventListener("input", () => {
     socket.emit("stop-typing", { roomId: ROOM_ID });
   }, 1000);
 });
-
-
-// <% messages.forEach(msg => { %>
-//   renderReactions("<%= msg._id %>", <%- JSON.stringify(msg.reactions || {}) %>);
-// <% }) %>
-
 </script>
 
-<%- include('../partials/footer') %>
+<%- include('../partials/footer')%>

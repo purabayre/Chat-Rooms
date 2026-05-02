@@ -21,7 +21,7 @@ const messageSchema = new mongoose.Schema(
     reactions: {
       type: Map,
       of: [mongoose.Schema.Types.ObjectId],
-      default: {},
+      default: () => new Map(),
     },
   },
   { timestamps: true },
