@@ -275,7 +275,6 @@
 }
 
 </style>
-
 <div class="chat-layout">
   <aside class="chat-sidebar">
     <div class="sidebar-header">
@@ -311,7 +310,9 @@
         <% messages.forEach(msg => { %>
           <div class="message-row <%= msg.sender._id.toString() === currentUserId ? 'mine' : 'theirs' %>">
             <img
-              src="<%= msg.sender.avatarPath || '/img/default-avatar.png' %>"
+              src="<%= msg.sender.avatarPath && msg.sender.avatarPath.trim() !== '' 
+                ? msg.sender.avatarPath 
+                : `https://ui-avatars.com/api/?name=${msg.sender.name}` %>"
               alt="<%= msg.sender.name %>"
               class="avatar avatar-sm"
             />
@@ -364,6 +365,7 @@
     </div>
   </div>
 </div>
+
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
