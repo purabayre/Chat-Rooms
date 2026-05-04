@@ -1,6 +1,7 @@
 const socketSession = require("express-socket.io-session");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const Room = require("../models/Room");
 const sanitizeHtml = require("sanitize-html");
 
 const roomMembers = new Map();
@@ -9,6 +10,24 @@ function getRoomUsers(roomId) {
   return roomMembers.has(roomId)
     ? [...roomMembers.get(roomId).values()].map((m) => m.userName)
     : [];
+}
+
+function getRoomCount(io, roomId) {
+  return io.sockets.adapter.rooms.get(roomId)?.size || 0;
+}
+
+async function broadcastRoomCounts(io) {
+  const rooms = await Room.find({}, "_id").lean();
+
+  const payload = rooms.map((room) => {
+    const id = room._id.toString();
+    return {
+      roomId: id,
+      count: getRoomCount(io, id),
+    };
+  });
+
+  io.emit("rooms-online-update", payload);
 }
 
 function addMember(roomId, info) {
@@ -59,6 +78,10 @@ module.exports = (io, session) => {
       socket.disconnect(true);
       return;
     }
+
+    socket.on("get-room-counts", async () => {
+      await broadcastRoomCounts(io);
+    });
 
     socket.on("join-room", async ({ roomId, before }) => {
       if (!roomId) return;
@@ -111,7 +134,14 @@ module.exports = (io, session) => {
       }
 
       socket.to(roomId).emit("user-joined", { name: currentUser.name });
-      io.to(roomId).emit("online-users", getRoomUsers(roomId));
+
+      io.to(roomId).emit("online-users", {
+        roomId,
+        users: getRoomUsers(roomId),
+        count: getRoomCount(io, roomId),
+      });
+
+      await broadcastRoomCounts(io);
     });
 
     socket.on("load-older-messages", async ({ roomId, before }) => {
@@ -171,7 +201,7 @@ module.exports = (io, session) => {
       try {
         const mentionRegex = /@([a-zA-Z0-9_]+)/g;
         let match;
-        const mentionedUsersMap = new Map(); // prevent duplicates
+        const mentionedUsersMap = new Map();
 
         while ((match = mentionRegex.exec(clean)) !== null) {
           const username = match[1];
@@ -228,23 +258,15 @@ module.exports = (io, session) => {
 
         let users = msg.reactions.get(emoji);
 
-        if (!Array.isArray(users)) {
-          users = [];
-        }
+        if (!Array.isArray(users)) users = [];
 
         const index = users.indexOf(userIdStr);
 
-        if (index > -1) {
-          users.splice(index, 1);
-        } else {
-          users.push(userIdStr);
-        }
+        if (index > -1) users.splice(index, 1);
+        else users.push(userIdStr);
 
-        if (users.length === 0) {
-          msg.reactions.delete(emoji);
-        } else {
-          msg.reactions.set(emoji, users);
-        }
+        if (users.length === 0) msg.reactions.delete(emoji);
+        else msg.reactions.set(emoji, users);
 
         await msg.save();
 
@@ -280,12 +302,20 @@ module.exports = (io, session) => {
       }
     });
 
-    function handleLeave(roomId) {
+    async function handleLeave(roomId) {
       socket.leave(roomId);
       currentRooms.delete(roomId);
       removeMember(roomId, socket.id);
+
       socket.to(roomId).emit("user-left", { name: currentUser.name });
-      io.to(roomId).emit("online-users", getRoomUsers(roomId));
+
+      io.to(roomId).emit("online-users", {
+        roomId,
+        users: getRoomUsers(roomId),
+        count: getRoomCount(io, roomId),
+      });
+
+      await broadcastRoomCounts(io);
     }
   });
 };

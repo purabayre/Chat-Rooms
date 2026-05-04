@@ -2,6 +2,8 @@
 
 <style>
 
+/* (UNCHANGED ALL YOUR CSS) */
+
 .rooms-layout {
   display: flex;
   gap: 20px;
@@ -10,7 +12,6 @@
   min-height: 90vh;
   font-family: Arial, sans-serif;
 }
-
 
 .rooms-sidebar {
   width: 280px;
@@ -25,7 +26,6 @@
   margin-bottom: 15px;
 }
 
-
 .rooms-main {
   flex: 1;
 }
@@ -34,7 +34,6 @@
   margin-bottom: 15px;
   color: #333;
 }
-
 
 .form-group {
   margin-bottom: 12px;
@@ -64,7 +63,6 @@
   font-size: 14px;
   color: #444;
 }
-
 
 .btn {
   padding: 9px 12px;
@@ -101,7 +99,6 @@
   background: #dde7f0;
 }
 
-
 .alert-error {
   background: #ffe5e5;
   color: #d8000c;
@@ -111,13 +108,11 @@
   font-size: 13px;
 }
 
-
 .rooms-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 15px;
 }
-
 
 .room-card {
   display: block;
@@ -140,7 +135,6 @@
   background: #fafcff;
 }
 
-
 .room-card-header {
   display: flex;
   justify-content: space-between;
@@ -161,14 +155,12 @@
   border-radius: 20px;
 }
 
-
 .room-card-meta {
   font-size: 12px;
   color: #777;
   display: flex;
   justify-content: space-between;
 }
-
 
 .invite-link-wrap {
   margin-top: 10px;
@@ -184,11 +176,11 @@
   border-radius: 5px;
 }
 
-
 .empty-state {
   color: #777;
   font-style: italic;
 }
+
 </style>
 
 <div class="rooms-layout">
@@ -214,9 +206,11 @@
 
   <section class="rooms-main">
     <h2>Public rooms</h2>
+
     <% if (rooms.length === 0) { %>
       <p class="empty-state">No rooms yet — create the first one!</p>
     <% } else { %>
+
       <div class="rooms-grid">
         <% rooms.forEach(room => { %>
           <% if (!room.isPrivate) { %>
@@ -239,8 +233,10 @@
           r.isPrivate && r.createdBy && r.createdBy._id.toString() === currentUserId
         );
       %>
+
       <% if (privateRooms.length > 0) { %>
         <h2 style="margin-top:2rem">Your private rooms</h2>
+
         <div class="rooms-grid">
           <% privateRooms.forEach(room => { %>
             <div class="room-card room-card-private">
@@ -248,9 +244,11 @@
                 <span class="room-name">🔒 <%= room.name %></span>
                 <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
               </div>
+
               <div class="room-card-meta">
                 <span><%= room.messageCount %> messages</span>
               </div>
+
               <div class="invite-link-wrap">
                 <input
                   type="text"
@@ -261,26 +259,35 @@
                 />
                 <button class="btn btn-ghost btn-sm" onclick="copyInvite('<%= room._id %>')">Copy</button>
               </div>
-              
+
+              <a
                 href="/chat/rooms/<%= room._id %>?token=<%= room.inviteToken %>"
                 class="btn btn-primary btn-sm"
                 style="margin-top:.5rem"
-              >Enter room</a>
+              >
+                Enter room
+              </a>
+
             </div>
           <% }) %>
         </div>
       <% } %>
+
     <% } %>
   </section>
 </div>
 
-<script src="/socket/index.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 
-socket.on('room-online-count', ({ roomId, count }) => {
-  const el = document.getElementById('online-' + roomId);
-  if (el) el.textContent = count + ' online';
+
+
+socket.on("rooms-online-update", (rooms) => {
+  rooms.forEach(({ roomId, count }) => {
+    const el = document.getElementById("online-" + roomId);
+    if (el) el.textContent = count + " online";
+  });
 });
 
 function copyInvite(roomId) {

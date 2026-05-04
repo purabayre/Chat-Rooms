@@ -56,7 +56,7 @@ exports.postRoom = async (req, res) => {
       isPrivate: isPrivate === "on",
     });
 
-    res.redirect(`/chat/rooms/${room._id}`);
+    res.redirect(`/chat`);
   } catch (err) {
     console.error(err);
     res.redirect("/chat");

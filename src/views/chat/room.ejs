@@ -268,6 +268,12 @@
   color: #fff;
 }
 
+.online-user {
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
 </style>
 
 <div class="chat-layout">
@@ -320,7 +326,16 @@
 
               <div class="message-bubble"><%= msg.text %></div>
 
-              <div class="reactions" id="react-<%= msg._id %>"></div>
+              <div class="reactions" id="react-<%= msg._id %>">
+                    <% if (msg.reactions) { %>
+                    <% Object.keys(msg.reactions).forEach(emoji => { %>
+                    <% const count = msg.reactions[emoji].length; %>
+                     <% if (count > 0) { %>
+                        <span class="reaction-pill"><%= emoji %> <%= count %></span>
+                        <% } %>
+                        <% }) %>
+                         <% } %>
+               </div>
 
               <span class="message-time">
                 <%= new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) %>
@@ -347,7 +362,7 @@
   </div>
 </div>
 
-<script src="/socket/index.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 
 <script>
 const ROOM_ID      = '<%= room._id %>';
@@ -490,6 +505,24 @@ function renderReactions(messageId, reactions) {
     container.appendChild(span);
   }
 }
+
+socket.on("online-users", ({ roomId, users, count }) => {
+  const countEl = document.getElementById("online-count");
+  const listEl = document.getElementById("online-list");
+
+  if (countEl) countEl.textContent = count;
+
+  if (listEl) {
+    listEl.innerHTML = "";
+
+    users.forEach((name) => {
+      const li = document.createElement("li");
+      li.className = "online-user";
+      li.textContent = name;
+      listEl.appendChild(li);
+    });
+  }
+});
 
 socket.emit("join-room", { roomId: ROOM_ID });
 
