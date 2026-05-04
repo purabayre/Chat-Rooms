@@ -274,7 +274,7 @@
   <aside class="chat-sidebar">
     <div class="sidebar-header">
       <h3>#<%= room.name %></h3>
-      <a href="/chat" class="btn btn-ghost btn-sm">← Rooms</a>
+      <a href="/chat" class="btn btn-ghost btn-sm">Back to Rooms</a>
     </div>
 
     <% if (inviteToken) { %>
@@ -347,7 +347,7 @@
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="/socket/index.js"></script>
 
 <script>
 const ROOM_ID      = '<%= room._id %>';
@@ -364,21 +364,21 @@ function copyInviteLink() {
   navigator.clipboard.writeText(link).then(() => alert('Copied!'));
 }
 
-const socket       = io();
-const messagesEl   = document.getElementById('messages');
-const wrapEl       = document.getElementById('messages-wrap');
-const inputEl      = document.getElementById('msg-input');
-const sendBtn      = document.getElementById('send-btn');
-const typingEl     = document.getElementById('typing-indicator');
+const socket = io();
+const messagesEl = document.getElementById('messages');
+const wrapEl  = document.getElementById('messages-wrap');
+const inputEl = document.getElementById('msg-input');
+const sendBtn = document.getElementById('send-btn');
+const typingEl = document.getElementById('typing-indicator');
+const loadMoreBtn = document.getElementById("load-more-btn");
 
 let hasMore = true;
 let oldestMessageTime = null;
 let loadingOlder = false;
 
-/* ✅ FIX: prevent duplicate rendering */
+/* FIX: prevent duplicate rendering */
 let initialLoaded = false;
 
-const loadMoreBtn = document.getElementById("load-more-btn");
 
 function scrollBottom() { wrapEl.scrollTop = wrapEl.scrollHeight; }
 
@@ -493,7 +493,6 @@ function renderReactions(messageId, reactions) {
 
 socket.emit("join-room", { roomId: ROOM_ID });
 
-/* ✅ FIX APPLIED HERE */
 socket.on("room-history", (data) => {
   if (initialLoaded) return;
   initialLoaded = true;

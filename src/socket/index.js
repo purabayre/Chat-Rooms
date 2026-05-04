@@ -25,7 +25,6 @@ function removeMember(roomId, socketId) {
   if (map.size === 0) roomMembers.delete(roomId);
 }
 
-/* ✅ NEW HELPER: find user by username inside a room */
 function findUserByName(roomId, name) {
   if (!roomMembers.has(roomId)) return null;
 
@@ -170,7 +169,6 @@ module.exports = (io, session) => {
       if (!clean) return;
 
       try {
-        /* ✅ NEW: detect mentions */
         const mentionRegex = /@([a-zA-Z0-9_]+)/g;
         let match;
         const mentionedUsersMap = new Map(); // prevent duplicates
@@ -203,7 +201,6 @@ module.exports = (io, session) => {
           createdAt: populated.createdAt,
         });
 
-        /* ✅ NEW: send private mention notifications */
         for (const user of mentionedUsers) {
           io.to(user.socketId).emit("mention-notification", {
             roomId,
