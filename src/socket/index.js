@@ -315,7 +315,9 @@ module.exports = (io, session) => {
         count: getRoomCount(io, roomId),
       });
 
-      await broadcastRoomCounts(io);
+      setTimeout(() => {
+        broadcastRoomCounts(io);
+      }, 50);
     }
   });
 };

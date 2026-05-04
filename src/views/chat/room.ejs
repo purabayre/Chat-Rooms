@@ -96,7 +96,7 @@
 
 .message-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
@@ -316,7 +316,10 @@
               class="avatar avatar-sm"
             />
             <div class="message-bubble-wrap">
-              <span class="message-sender"><%= msg.sender.name %></span>
+
+              <% if (msg.sender._id.toString() !== currentUserId) { %>
+                <span class="message-sender"><%= msg.sender.name %></span>
+              <% } %>
 
               <div class="reaction-popup">
                 <button onclick="react('<%= msg._id %>', '👍')">👍</button>
@@ -327,15 +330,15 @@
               <div class="message-bubble"><%= msg.text %></div>
 
               <div class="reactions" id="react-<%= msg._id %>">
-                    <% if (msg.reactions) { %>
-                    <% Object.keys(msg.reactions).forEach(emoji => { %>
+                <% if (msg.reactions) { %>
+                  <% Object.keys(msg.reactions).forEach(emoji => { %>
                     <% const count = msg.reactions[emoji].length; %>
-                     <% if (count > 0) { %>
-                        <span class="reaction-pill"><%= emoji %> <%= count %></span>
-                        <% } %>
-                        <% }) %>
-                         <% } %>
-               </div>
+                    <% if (count > 0) { %>
+                      <span class="reaction-pill"><%= emoji %> <%= count %></span>
+                    <% } %>
+                  <% }) %>
+                <% } %>
+              </div>
 
               <span class="message-time">
                 <%= new Date(msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) %>
@@ -361,7 +364,6 @@
     </div>
   </div>
 </div>
-
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
@@ -506,6 +508,16 @@ function renderReactions(messageId, reactions) {
   }
 }
 
+/* ✅ NEW: system message function */
+function appendSystemMessage(text) {
+  const div = document.createElement("div");
+  div.className = "system-msg";
+  div.textContent = text;
+
+  messagesEl.appendChild(div);
+  scrollBottom();
+}
+
 socket.on("online-users", ({ roomId, users, count }) => {
   const countEl = document.getElementById("online-count");
   const listEl = document.getElementById("online-list");
@@ -522,6 +534,15 @@ socket.on("online-users", ({ roomId, users, count }) => {
       listEl.appendChild(li);
     });
   }
+});
+
+/* ✅ NEW: join/leave listeners */
+socket.on("user-joined", ({ name }) => {
+  appendSystemMessage(`${name} joined the room`);
+});
+
+socket.on("user-left", ({ name }) => {
+  appendSystemMessage(`${name} left the room`);
 });
 
 socket.emit("join-room", { roomId: ROOM_ID });

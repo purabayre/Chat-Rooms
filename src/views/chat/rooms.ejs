@@ -2,7 +2,6 @@
 
 <style>
 
-/* (UNCHANGED ALL YOUR CSS) */
 
 .rooms-layout {
   display: flex;
@@ -285,6 +284,7 @@ const socket = io();
 
 socket.on("rooms-online-update", (rooms) => {
   rooms.forEach(({ roomId, count }) => {
+    console.log(`${roomId} ${count}`);
     const el = document.getElementById("online-" + roomId);
     if (el) el.textContent = count + " online";
   });
