@@ -282,15 +282,7 @@
       <a href="/chat" class="btn btn-ghost btn-sm">Back to Rooms</a>
     </div>
 
-    <% if (inviteToken) { %>
-    <div class="invite-section">
-      <p class="hint">Private — share this link:</p>
-      <div class="invite-copy-row">
-        <input type="text" id="invite-link" class="invite-link-input" readonly value="" />
-        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">Copy</button>
-      </div>
-    </div>
-    <% } %>
+   
 
     <div class="online-users-section">
       <h4>Online <span id="online-count" class="online-count-badge">-</span></h4>
@@ -373,15 +365,7 @@ const ROOM_ID      = '<%= room._id %>';
 const CURRENT_UID  = '<%= currentUserId %>';
 const INVITE_TOKEN = '<%= inviteToken || "" %>';
 
-if (INVITE_TOKEN) {
-  document.getElementById('invite-link').value =
-    location.origin + '/chat/rooms/' + ROOM_ID + '?token=' + INVITE_TOKEN;
-}
 
-function copyInviteLink() {
-  const link = document.getElementById('invite-link').value;
-  navigator.clipboard.writeText(link).then(() => alert('Copied!'));
-}
 
 const socket = io();
 const messagesEl = document.getElementById('messages');
@@ -526,7 +510,6 @@ function renderReactions(messageId, reactions) {
   }
 }
 
-/* ✅ NEW: system message function */
 function appendSystemMessage(text) {
   const div = document.createElement("div");
   div.className = "system-msg";
@@ -554,7 +537,6 @@ socket.on("online-users", ({ roomId, users, count }) => {
   }
 });
 
-/* ✅ NEW: join/leave listeners */
 socket.on("user-joined", ({ name }) => {
   appendSystemMessage(`${name} joined the room`);
 });

@@ -70,7 +70,7 @@ app.use((err, req, res, next) => {
 });
 
 initSocket(io, sessionMiddleware);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
