@@ -284,7 +284,6 @@ socket.emit("get-room-counts");
 
 socket.on("rooms-online-update", (rooms) => {
   rooms.forEach(({ roomId, count }) => {
-    console.log(`${roomId} ${count}`);
     const el = document.getElementById("online-" + roomId);
     if (el) el.textContent = count + " online";
   });

@@ -75,7 +75,7 @@ module.exports = (io, session) => {
     try {
       currentUser = await User.findById(userId).lean();
 
-      // 🔥 FIX: Prevent crash if user not found
+      // Prevent crash if user not found
       if (!currentUser) {
         console.log("Socket user not found:", userId);
         socket.disconnect(true);
