@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
     },
     avatarPath: {
       type: String,
-      default: "/images/default-avatar.png",
+      default: "/images/default-avatar.jpg",
     },
   },
   { timestamps: true },

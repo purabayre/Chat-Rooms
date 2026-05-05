@@ -280,7 +280,7 @@
 <script>
 const socket = io();
 
-
+socket.emit("get-room-counts");
 
 socket.on("rooms-online-update", (rooms) => {
   rooms.forEach(({ roomId, count }) => {

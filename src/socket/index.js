@@ -74,7 +74,15 @@ module.exports = (io, session) => {
     let currentUser;
     try {
       currentUser = await User.findById(userId).lean();
-    } catch {
+
+      // 🔥 FIX: Prevent crash if user not found
+      if (!currentUser) {
+        console.log("Socket user not found:", userId);
+        socket.disconnect(true);
+        return;
+      }
+    } catch (err) {
+      console.error("User fetch error:", err);
       socket.disconnect(true);
       return;
     }
@@ -314,10 +322,6 @@ module.exports = (io, session) => {
         users: getRoomUsers(roomId),
         count: getRoomCount(io, roomId),
       });
-
-      setTimeout(() => {
-        broadcastRoomCounts(io);
-      }, 50);
     }
   });
 };
