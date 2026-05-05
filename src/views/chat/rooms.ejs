@@ -1,28 +1,33 @@
 <%- include('../partials/header') %>
 
-<style>
+<!-- <link rel="stylesheet"  href="css/style.css"/> -->
 
+<style>
 
 .rooms-layout {
   display: flex;
-  gap: 20px;
-  padding: 20px;
-  background: #f5f7fa;
+  gap: 28px;
+  padding: 28px;
   min-height: 90vh;
-  font-family: Arial, sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background: linear-gradient(120deg, #eef2f7, #f8fafc);
 }
 
 .rooms-sidebar {
-  width: 280px;
-  background: #ffffff;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-  height: fit-content;
+  width: 300px;
+  padding: 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  border: 1px solid rgba(255,255,255,0.4);
 }
 
 .rooms-sidebar h3 {
-  margin-bottom: 15px;
+  margin-bottom: 18px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .rooms-main {
@@ -30,54 +35,62 @@
 }
 
 .rooms-main h2 {
-  margin-bottom: 15px;
-  color: #333;
+  margin-bottom: 18px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .form-group {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 5px;
-  color: #555;
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .form-group input[type="text"] {
-  width: 100%;
-  padding: 9px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
+  width: 93%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  transition: all 0.2s ease;
 }
 
 .form-group input:focus {
-  border-color: #4a90e2;
+  border-color: #5f61ff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
   outline: none;
 }
 
-.checkbox-group label {
-  font-size: 14px;
-  color: #444;
-}
-
 .btn {
-  padding: 9px 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
+  border-radius: 10px;
   font-size: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
 }
 
 .btn-primary {
-  background: #4a90e2;
-  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+} -->
+
+<!-- .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99,102,241,0.35);
 }
 
-.btn-primary:hover {
-  background: #357abd;
+.btn-ghost {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-ghost:hover {
+  background: #e5e7eb;
 }
 
 .btn-block {
@@ -85,99 +98,91 @@
 }
 
 .btn-sm {
-  font-size: 12px;
   padding: 6px 10px;
-}
-
-.btn-ghost {
-  background: #eef3f8;
-  color: #333;
-}
-
-.btn-ghost:hover {
-  background: #dde7f0;
-}
-
-.alert-error {
-  background: #ffe5e5;
-  color: #d8000c;
-  padding: 8px;
-  border-radius: 5px;
-  margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
 }
 
 .room-card {
   display: block;
-  background: #ffffff;
-  padding: 15px;
-  border-radius: 10px;
+  padding: 18px;
+  border-radius: 18px;
   text-decoration: none;
   color: inherit;
-  box-shadow: 0 5px 14px rgba(0,0,0,0.05);
-  transition: transform 0.15s, box-shadow 0.15s;
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0,0,0,0.04);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+  transition: all 0.25s ease;
 }
 
 .room-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 16px 35px rgba(0,0,0,0.1);
 }
 
 .room-card-private {
-  border: 1px solid #e0e6ed;
-  background: #fafcff;
+  background: linear-gradient(135deg, #f0f4ff, #f8fbff);
+  border: 1px solid #e0e7ff;
+  
 }
 
 .room-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .room-name {
-  font-weight: bold;
-  color: #333;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .room-online-badge {
-  font-size: 12px;
-  background: #e6f4ea;
-  color: #2e7d32;
-  padding: 3px 8px;
-  border-radius: 20px;
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 500;
 }
 
 .room-card-meta {
   font-size: 12px;
-  color: #777;
+  color: #6b7280;
   display: flex;
   justify-content: space-between;
 }
 
-.invite-link-wrap {
-  margin-top: 10px;
-  display: flex;
-  gap: 5px;
-}
-
-.invite-link-input {
-  flex: 1;
-  font-size: 12px;
-  padding: 5px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-
 .empty-state {
-  color: #777;
+  color: #9ca3af;
   font-style: italic;
+}
+
+#shareModal {
+  animation: popIn 0.25s ease;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 </style>
@@ -241,38 +246,42 @@
         );
       %>
       <% if (privateRooms.length > 0) { %>
-        <h2 style="margin-top:2rem">Your private rooms</h2>
+  <h2 style="margin-top:2rem">Your private rooms</h2>
 
-        <div class="rooms-grid">
-          <% privateRooms.forEach(room => { %>
-            <div class="room-card room-card-private">
-              <div class="room-card-header">
-                <span class="room-name">🔒 <%= room.name %></span>
-                <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
-              </div>
+  <div class="rooms-grid">
+    <% privateRooms.forEach(room => { %>
+      <div class="room-card room-card-private">
 
-              <div class="room-card-meta">
-                <span><%= room.messageCount %> messages</span>
-              </div>
-
-              <button 
-                class="btn btn-ghost btn-sm"
-                onclick="openShareModal('<%= room._id %>')"
-              >
-                Share
-              </button>
-
-              <a
-                href="/chat/rooms/<%= room._id %>"
-                class="btn btn-primary btn-sm"
-                style="margin-top:.5rem"
-              >
-                Enter room
-              </a>
-            </div>
-          <% }) %>
+        <div class="room-card-header">
+          <span class="room-name">🔒 <%= room.name %></span>
+          <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
         </div>
-      <% } %>
+
+        <div class="room-card-meta">
+          <span>by <%= room.createdBy?.name || 'Unknown' %></span>
+          <span><%= room.messageCount %> messages</span>
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button 
+            class="btn btn-ghost btn-sm"
+            onclick="openShareModal('<%= room._id %>')"
+          >
+            Share
+          </button>
+
+          <a
+            href="/chat/rooms/<%= room._id %>"
+            class="btn btn-primary btn-sm"
+          >
+            Enter room
+          </a>
+        </div>
+
+      </div>
+    <% }) %>
+  </div>
+<% } %>
 
       <% if (sharedRooms.length > 0) { %>
         <h2 style="margin-top:2rem">Shared with you</h2>
@@ -281,7 +290,7 @@
           <% sharedRooms.forEach(room => { %>
             <a href="/chat/rooms/<%= room._id %>" class="room-card room-card-private">
               <div class="room-card-header">
-                <span class="room-name">🔗 <%= room.name %></span>
+                <span class="room-name">🔑 <%= room.name %></span>
                 <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
               </div>
 

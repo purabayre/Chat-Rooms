@@ -39,7 +39,6 @@ function addMember(roomId, info) {
 
   const map = roomMembers.get(roomId);
 
-  // prevent duplicate socket entries
   if (!map.has(info.socketId)) {
     map.set(info.socketId, info);
   }
@@ -98,7 +97,6 @@ module.exports = (io, session) => {
       return;
     }
 
-    // personal room (for notifications across tabs)
     socket.join(userId.toString());
 
     socket.on("get-room-counts", async () => {
@@ -113,10 +111,8 @@ module.exports = (io, session) => {
       try {
         if (!roomId) return;
 
-        // prevent duplicate joins
         if (currentRooms.has(roomId)) return;
 
-        // validate room existence (security fix)
         const roomExists = await Room.findById(roomId).lean();
         if (!roomExists) return;
 
@@ -270,7 +266,6 @@ module.exports = (io, session) => {
           createdAt: populated.createdAt,
         });
 
-        // FIX: notify all user devices (not just one socket)
         for (const user of mentionedUsers) {
           io.to(user.userId.toString()).emit("mention-notification", {
             roomId,

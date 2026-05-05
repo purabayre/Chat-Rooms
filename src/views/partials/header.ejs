@@ -4,19 +4,156 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> — ChatApp</title>
-  <link rel="stylesheet" href="/css/style.css" />
+
+ <style>
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background: linear-gradient(120deg, #eef2f7, #f8fafc);
+}
+
+
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 28px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255,255,255,0.7);
+  border-bottom: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+}
+
+
+.header-nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
+
+.logo {
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.2s;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
+.nav-link {
+  font-size: 14px;
+  text-decoration: none;
+  color: #374151;
+  padding: 7px 12px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  background: rgba(99,102,241,0.08);
+  color: #4f46e5;
+}
+
+
+
+.btn {
+  border-radius: 10px;
+  font-size: 13px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99,102,241,0.35);
+}
+
+
+.btn-ghost {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-ghost:hover {
+  background: #e5e7eb;
+}
+
+
+.nav-link.profile-btn {
+  background: rgba(99,102,241,0.1);
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.nav-link.profile-btn:hover {
+  background: rgba(99,102,241,0.2);
+}
+
+
+.logout-form {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.main-content {
+  padding: 10px 0;
+}
+</style>
 </head>
+
 <body>
   <header class="site-header">
     <div class="header-inner">
       <a href="/chat" class="logo">💬 ChatApp</a>
+
       <nav class="header-nav">
         <% if (currentUserId) { %>
-          <a href="/chat" class="nav-link">Rooms</a>
+
+          <% if (typeof currentPath !== 'undefined' && currentPath !== '/chat') { %>
+            <a href="/chat" class="nav-link">Rooms</a>
+          <% } %>
+
           <a href="/auth/profile" class="nav-link">Profile</a>
-          <form action="/auth/logout" method="POST" style="display:inline">
+
+          <form action="/auth/logout" method="POST" class="logout-form">
             <button type="submit" class="btn btn-ghost">Logout</button>
           </form>
+
         <% } else { %>
           <a href="/auth/login" class="nav-link">Login</a>
           <a href="/auth/register" class="btn btn-primary">Register</a>
@@ -24,4 +161,5 @@
       </nav>
     </div>
   </header>
+
   <main class="main-content">
