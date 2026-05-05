@@ -1,12 +1,12 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-exports.getRegister = (req, res) => {
+exports.getRegister = (req, res, next) => {
   if (req.session.userId) return res.redirect("/chat");
   res.render("auth/register", { error: null, title: "Register" });
 };
 
-exports.postRegister = async (req, res) => {
+exports.postRegister = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
@@ -22,8 +22,16 @@ exports.postRegister = async (req, res) => {
         title: "Register",
       });
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    const existing = await User.findOne({ email });
+    if (!emailRegex.test(email)) {
+      return res.render("auth/register", {
+        error: "Invalid email format.",
+        title: "Register",
+      });
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.render("auth/register", {
         error: "Email already registered.",
@@ -34,7 +42,12 @@ exports.postRegister = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
     const avatarPath = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const user = await User.create({ name, email, passwordHash, avatarPath });
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      avatarPath,
+    });
 
     req.session.userId = user._id.toString();
     req.session.userName = user.name;
@@ -48,12 +61,12 @@ exports.postRegister = async (req, res) => {
   }
 };
 
-exports.getLogin = (req, res) => {
+exports.getLogin = (req, res, next) => {
   if (req.session.userId) return res.redirect("/chat");
   res.render("auth/login", { error: null, title: "Login" });
 };
 
-exports.postLogin = async (req, res) => {
+exports.postLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -64,7 +77,8 @@ exports.postLogin = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user || !(await user.comparePassword(password))) {
       return res.render("auth/login", {
         error: "Invalid email or password.",
@@ -84,14 +98,14 @@ exports.postLogin = async (req, res) => {
   }
 };
 
-exports.postLogout = (req, res) => {
+exports.postLogout = (req, res, next) => {
   req.session.destroy(() => {
     res.clearCookie("connect.sid");
     res.redirect("/");
   });
 };
 
-exports.getProfile = async (req, res) => {
+exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.session.userId);
     res.render("chat/profile", {
@@ -105,7 +119,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-exports.patchProfile = async (req, res) => {
+exports.patchProfile = async (req, res, next) => {
   try {
     const { name } = req.body;
     const update = {};

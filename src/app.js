@@ -3,7 +3,6 @@ const express = require("express");
 const http = require("http");
 const socketIO = require("socket.io");
 const session = require("express-session");
-const MongoStore = require("connect-mongo");
 const path = require("path");
 
 const connectDB = require("./config/db");
@@ -32,6 +31,9 @@ const store = new MongoDBStore({
   uri: process.env.MONGO_URI,
   collection: "sessions",
 });
+store.on("error", function (error) {
+  console.error("Session Store Error:", error);
+});
 
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
@@ -41,6 +43,7 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,
     sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
   },
 });
 

@@ -2,7 +2,7 @@ const Room = require("../models/Room");
 const Message = require("../models/Message");
 const User = require("../models/User");
 
-exports.getRooms = async (req, res) => {
+exports.getRooms = async (req, res, next) => {
   try {
     const userId = req.session.userId;
 
@@ -46,7 +46,7 @@ exports.getRooms = async (req, res) => {
   }
 };
 
-exports.postRoom = async (req, res) => {
+exports.postRoom = async (req, res, next) => {
   try {
     const { name, isPrivate } = req.body;
 
@@ -81,7 +81,7 @@ exports.postRoom = async (req, res) => {
   }
 };
 
-exports.getRoom = async (req, res) => {
+exports.getRoom = async (req, res, next) => {
   try {
     const room = await Room.findById(req.params.id).populate(
       "createdBy",
@@ -125,7 +125,7 @@ exports.getRoom = async (req, res) => {
   }
 };
 
-exports.joinByInvite = async (req, res) => {
+exports.joinByInvite = async (req, res, next) => {
   try {
     const { token } = req.params;
     const userId = req.session.userId;
@@ -160,7 +160,7 @@ exports.joinByInvite = async (req, res) => {
     res.redirect("/chat");
   }
 };
-exports.getAllUsers = async (req, res) => {
+exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find(
       { _id: { $ne: req.session.userId } },
@@ -172,7 +172,7 @@ exports.getAllUsers = async (req, res) => {
     res.status(500).json({ error: "Failed to load users" });
   }
 };
-exports.shareRoom = async (req, res) => {
+exports.shareRoom = async (req, res, next) => {
   try {
     const { roomId, userIdToShare } = req.body;
     const userId = req.session.userId;

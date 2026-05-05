@@ -17,22 +17,32 @@ function getRoomCount(io, roomId) {
 }
 
 async function broadcastRoomCounts(io) {
-  const rooms = await Room.find({}, "_id").lean();
+  try {
+    const rooms = await Room.find({}, "_id").lean();
 
-  const payload = rooms.map((room) => {
-    const id = room._id.toString();
-    return {
-      roomId: id,
-      count: getRoomCount(io, id),
-    };
-  });
+    const payload = rooms.map((room) => {
+      const id = room._id.toString();
+      return {
+        roomId: id,
+        count: getRoomCount(io, id),
+      };
+    });
 
-  io.emit("rooms-online-update", payload);
+    io.emit("rooms-online-update", payload);
+  } catch (err) {
+    console.error("broadcastRoomCounts error:", err);
+  }
 }
 
 function addMember(roomId, info) {
   if (!roomMembers.has(roomId)) roomMembers.set(roomId, new Map());
-  roomMembers.get(roomId).set(info.socketId, info);
+
+  const map = roomMembers.get(roomId);
+
+  // prevent duplicate socket entries
+  if (!map.has(info.socketId)) {
+    map.set(info.socketId, info);
+  }
 }
 
 function removeMember(roomId, socketId) {
@@ -48,7 +58,10 @@ function findUserByName(roomId, name) {
   if (!roomMembers.has(roomId)) return null;
 
   for (const member of roomMembers.get(roomId).values()) {
-    if (member.userName.toLowerCase() === name.toLowerCase()) {
+    if (
+      member.userName &&
+      member.userName.toLowerCase() === name.toLowerCase()
+    ) {
       return member;
     }
   }
@@ -85,6 +98,7 @@ module.exports = (io, session) => {
       return;
     }
 
+    // personal room (for notifications across tabs)
     socket.join(userId.toString());
 
     socket.on("get-room-counts", async () => {
@@ -96,23 +110,33 @@ module.exports = (io, session) => {
     });
 
     socket.on("join-room", async ({ roomId, before }) => {
-      if (!roomId) return;
-
-      socket.join(roomId);
-      currentRooms.add(roomId);
-
-      addMember(roomId, {
-        socketId: socket.id,
-        userId,
-        userName: currentUser.name,
-        avatarPath: currentUser.avatarPath,
-      });
-
       try {
+        if (!roomId) return;
+
+        // prevent duplicate joins
+        if (currentRooms.has(roomId)) return;
+
+        // validate room existence (security fix)
+        const roomExists = await Room.findById(roomId).lean();
+        if (!roomExists) return;
+
+        socket.join(roomId);
+        currentRooms.add(roomId);
+
+        addMember(roomId, {
+          socketId: socket.id,
+          userId,
+          userName: currentUser.name,
+          avatarPath: currentUser.avatarPath,
+        });
+
         const query = { room: roomId };
 
         if (before) {
-          query.createdAt = { $lt: new Date(before) };
+          const beforeDate = new Date(before);
+          if (!isNaN(beforeDate)) {
+            query.createdAt = { $lt: beforeDate };
+          }
         }
 
         const messages = await Message.find(query)
@@ -141,28 +165,31 @@ module.exports = (io, session) => {
             ? messages[messages.length - 1].createdAt
             : null,
         });
+
+        socket.to(roomId).emit("user-joined", { name: currentUser.name });
+
+        io.to(roomId).emit("online-users", {
+          roomId,
+          users: getRoomUsers(roomId),
+          count: getRoomCount(io, roomId),
+        });
+
+        await broadcastRoomCounts(io);
       } catch (err) {
-        console.error("history error", err);
+        console.error("join-room error:", err);
       }
-
-      socket.to(roomId).emit("user-joined", { name: currentUser.name });
-
-      io.to(roomId).emit("online-users", {
-        roomId,
-        users: getRoomUsers(roomId),
-        count: getRoomCount(io, roomId),
-      });
-
-      await broadcastRoomCounts(io);
     });
 
     socket.on("load-older-messages", async ({ roomId, before }) => {
-      if (!roomId || !before) return;
-
       try {
+        if (!roomId || !before) return;
+
+        const beforeDate = new Date(before);
+        if (isNaN(beforeDate)) return;
+
         const query = {
           room: roomId,
-          createdAt: { $lt: new Date(before) },
+          createdAt: { $lt: beforeDate },
         };
 
         const messages = await Message.find(query)
@@ -201,16 +228,16 @@ module.exports = (io, session) => {
     });
 
     socket.on("send-message", async ({ roomId, text }) => {
-      if (!roomId || !text) return;
-
-      const clean = sanitizeHtml(text, {
-        allowedTags: [],
-        allowedAttributes: {},
-      }).trim();
-
-      if (!clean) return;
-
       try {
+        if (!roomId || !text) return;
+
+        const clean = sanitizeHtml(text, {
+          allowedTags: [],
+          allowedAttributes: {},
+        }).trim();
+
+        if (!clean || clean.length > 5000) return;
+
         const mentionRegex = /@([a-zA-Z0-9_]+)/g;
         let match;
         const mentionedUsersMap = new Map();
@@ -243,8 +270,9 @@ module.exports = (io, session) => {
           createdAt: populated.createdAt,
         });
 
+        // FIX: notify all user devices (not just one socket)
         for (const user of mentionedUsers) {
-          io.to(user.socketId).emit("mention-notification", {
+          io.to(user.userId.toString()).emit("mention-notification", {
             roomId,
             message: clean,
             from: currentUser.name,
@@ -256,14 +284,14 @@ module.exports = (io, session) => {
     });
 
     socket.on("react-message", async ({ messageId, emoji }) => {
-      if (!messageId || !emoji) return;
-
       try {
+        if (!messageId || !emoji) return;
+
         const msg = await Message.findById(messageId);
         if (!msg) return;
 
-        if (!msg.reactions) {
-          msg.reactions = new Map();
+        if (!(msg.reactions instanceof Map)) {
+          msg.reactions = new Map(msg.reactions || []);
         }
 
         const userIdStr = userId.toString();
@@ -308,24 +336,30 @@ module.exports = (io, session) => {
       handleLeave(roomId);
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       for (const roomId of currentRooms) {
-        handleLeave(roomId);
+        await handleLeave(roomId);
       }
     });
 
     async function handleLeave(roomId) {
-      socket.leave(roomId);
-      currentRooms.delete(roomId);
-      removeMember(roomId, socket.id);
+      try {
+        if (!currentRooms.has(roomId)) return;
 
-      socket.to(roomId).emit("user-left", { name: currentUser.name });
+        socket.leave(roomId);
+        currentRooms.delete(roomId);
+        removeMember(roomId, socket.id);
 
-      io.to(roomId).emit("online-users", {
-        roomId,
-        users: getRoomUsers(roomId),
-        count: getRoomCount(io, roomId),
-      });
+        socket.to(roomId).emit("user-left", { name: currentUser.name });
+
+        io.to(roomId).emit("online-users", {
+          roomId,
+          users: getRoomUsers(roomId),
+          count: getRoomCount(io, roomId),
+        });
+      } catch (err) {
+        console.error("handleLeave error:", err);
+      }
     }
   });
 };

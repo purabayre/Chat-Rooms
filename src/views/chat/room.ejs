@@ -294,7 +294,7 @@
 
     <div class="messages-wrap" id="messages-wrap">
 
-      <button id="load-more-btn" class="btn btn-ghost btn-sm" style="width:100%; margin-bottom:10px;">
+      <button id="load-more-btn" class="btn btn-ghost btn-sm" style="width:100%; margin-bottom:10px; display:none;">
         Load older messages
       </button>
 
@@ -555,6 +555,12 @@ socket.on("room-history", (data) => {
 
   hasMore = more;
   oldestMessageTime = nextBefore;
+
+  if (hasMore) {
+    loadMoreBtn.style.display = "block";
+  } else {
+    loadMoreBtn.style.display = "none";
+  }
 });
 
 function loadOlderMessages() {
@@ -586,6 +592,10 @@ socket.on("older-messages", (data) => {
 
   hasMore = more;
   oldestMessageTime = nextBefore;
+
+  if (!hasMore) {
+    loadMoreBtn.style.display = "none";
+  }
 
   if (!messages.length) return;
 
