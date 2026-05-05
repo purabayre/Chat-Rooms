@@ -191,12 +191,12 @@
     <form action="/chat/rooms" method="POST" class="create-room-form">
       <div class="form-group">
         <label for="name">Room name</label>
-        <input type="text" id="name" name="name" required maxlength="80" placeholder="e.g. general" />
+        <input type="text" id="name" name="name" required maxlength="80" />
       </div>
       <div class="form-group checkbox-group">
         <label>
-          <input type="checkbox" name="isPrivate" id="isPrivate" />
-          Private room (invite-only)
+          <input type="checkbox" name="isPrivate" />
+          Private room
         </label>
       </div>
       <button type="submit" class="btn btn-primary btn-block">Create room</button>
@@ -207,7 +207,7 @@
     <h2>Public rooms</h2>
 
     <% if (rooms.length === 0) { %>
-      <p class="empty-state">No rooms yet — create the first one!</p>
+      <p class="empty-state">No rooms yet</p>
     <% } else { %>
 
       <div class="rooms-grid">
@@ -219,7 +219,7 @@
                 <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
               </div>
               <div class="room-card-meta">
-                <span>by <%= room.createdBy ? room.createdBy.name : 'Unknown' %></span>
+                <span>by <%= room.createdBy?.name || 'Unknown' %></span>
                 <span><%= room.messageCount %> messages</span>
               </div>
             </a>
@@ -229,10 +229,17 @@
 
       <%
         const privateRooms = rooms.filter(r =>
-          r.isPrivate && r.createdBy && r.createdBy._id.toString() === currentUserId
+          r.isPrivate &&
+          r.createdBy &&
+          r.createdBy._id.toString() === currentUserId
+        );
+
+        const sharedRooms = rooms.filter(r =>
+          r.isPrivate &&
+          r.createdBy &&
+          r.createdBy._id.toString() !== currentUserId
         );
       %>
-
       <% if (privateRooms.length > 0) { %>
         <h2 style="margin-top:2rem">Your private rooms</h2>
 
@@ -248,32 +255,56 @@
                 <span><%= room.messageCount %> messages</span>
               </div>
 
-              <div class="invite-link-wrap">
-                <input
-                  type="text"
-                  class="invite-link-input"
-                  readonly
-                  id="invite-<%= room._id %>"
-                  value="/chat/rooms/<%= room._id %>?token=<%= room.inviteToken %>"
-                />
-                <button class="btn btn-ghost btn-sm" onclick="copyInvite('<%= room._id %>')">Copy</button>
-              </div>
+              <button 
+                class="btn btn-ghost btn-sm"
+                onclick="openShareModal('<%= room._id %>')"
+              >
+                Share
+              </button>
 
               <a
-                href="/chat/rooms/<%= room._id %>?token=<%= room.inviteToken %>"
+                href="/chat/rooms/<%= room._id %>"
                 class="btn btn-primary btn-sm"
                 style="margin-top:.5rem"
               >
                 Enter room
               </a>
-
             </div>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <% if (sharedRooms.length > 0) { %>
+        <h2 style="margin-top:2rem">Shared with you</h2>
+
+        <div class="rooms-grid">
+          <% sharedRooms.forEach(room => { %>
+            <a href="/chat/rooms/<%= room._id %>" class="room-card room-card-private">
+              <div class="room-card-header">
+                <span class="room-name">🔗 <%= room.name %></span>
+                <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
+              </div>
+
+              <div class="room-card-meta">
+                <span>by <%= room.createdBy?.name || 'Unknown' %></span>
+                <span><%= room.messageCount %> messages</span>
+              </div>
+            </a>
           <% }) %>
         </div>
       <% } %>
 
     <% } %>
   </section>
+</div>
+
+<div id="shareModal" style="display:none; position:fixed; top:25%; left:50%; transform:translateX(-50%); background:#fff; padding:20px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.2); width:300px;">
+  <h4>Select user</h4>
+
+  <select id="userSelect" style="width:100%; margin-bottom:10px;"></select>
+
+  <button class="btn btn-primary btn-sm" onclick="shareRoom()">Share</button>
+  <button class="btn btn-ghost btn-sm" onclick="closeShareModal()">Cancel</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -289,11 +320,54 @@ socket.on("rooms-online-update", (rooms) => {
   });
 });
 
-function copyInvite(roomId) {
-  const input = document.getElementById('invite-' + roomId);
-  const full = location.origin + input.value;
-  navigator.clipboard.writeText(full).then(() => alert('Invite link copied!'));
+let selectedRoomId = null;
+
+async function openShareModal(roomId) {
+  selectedRoomId = roomId;
+
+  const res = await fetch("/chat/users");
+  const users = await res.json();
+
+  const select = document.getElementById("userSelect");
+  select.innerHTML = "";
+
+  users.forEach(user => {
+    const option = document.createElement("option");
+    option.value = user._id;
+    option.textContent = user.name;
+    select.appendChild(option);
+  });
+
+  document.getElementById("shareModal").style.display = "block";
 }
+
+function closeShareModal() {
+  document.getElementById("shareModal").style.display = "none";
+}
+
+async function shareRoom() {
+  const userIdToShare = document.getElementById("userSelect").value;
+
+  await fetch("/chat/share-room", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      roomId: selectedRoomId,
+      userIdToShare,
+    }),
+  });
+
+  alert("Room shared!");
+  closeShareModal();
+}
+
+socket.on("roomShared", (room) => {
+  alert("New room shared: " + room.name);
+  location.reload();
+});
 </script>
+
 
 <%- include('../partials/footer') %>

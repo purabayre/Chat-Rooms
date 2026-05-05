@@ -75,7 +75,6 @@ module.exports = (io, session) => {
     try {
       currentUser = await User.findById(userId).lean();
 
-      // Prevent crash if user not found
       if (!currentUser) {
         console.log("Socket user not found:", userId);
         socket.disconnect(true);
@@ -87,8 +86,16 @@ module.exports = (io, session) => {
       return;
     }
 
+    // ✅ NEW: join personal room for direct events
+    socket.join(userId.toString());
+
     socket.on("get-room-counts", async () => {
       await broadcastRoomCounts(io);
+    });
+
+    // ✅ NEW: optional manual trigger (future use)
+    socket.on("join-personal-room", () => {
+      socket.join(userId.toString());
     });
 
     socket.on("join-room", async ({ roomId, before }) => {

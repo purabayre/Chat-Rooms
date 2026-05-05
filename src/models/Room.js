@@ -22,6 +22,13 @@ const roomSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    invitedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );
@@ -30,7 +37,6 @@ roomSchema.pre("save", function (next) {
   if (this.isPrivate && !this.inviteToken) {
     this.inviteToken = crypto.randomUUID();
   }
-  // next();
 });
 
 module.exports = mongoose.model("Room", roomSchema);
