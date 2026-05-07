@@ -23,7 +23,7 @@ function removeUploadedFile(file) {
 
 exports.getRegister = (req, res, next) => {
   if (req.session.userId) return res.redirect("/chat");
-  res.render("auth/register", { error: null, title: "Register" });
+  res.render("auth/register", { title: "Register" });
 };
 
 exports.postRegister = async (req, res) => {
@@ -36,7 +36,6 @@ exports.postRegister = async (req, res) => {
 
     if (!cleanName || !cleanEmail || !cleanPassword) {
       removeUploadedFile(req.file);
-
       return res.render("auth/register", {
         error: "All fields are required.",
         title: "Register",
@@ -45,7 +44,6 @@ exports.postRegister = async (req, res) => {
 
     if (cleanName.length < 2 || cleanName.length > 30) {
       removeUploadedFile(req.file);
-
       return res.render("auth/register", {
         error: "Name must be between 2 and 30 characters.",
         title: "Register",
@@ -53,10 +51,8 @@ exports.postRegister = async (req, res) => {
     }
 
     const nameRegex = /^[a-zA-Z0-9_ ]+$/;
-
     if (!nameRegex.test(cleanName)) {
       removeUploadedFile(req.file);
-
       return res.render("auth/register", {
         error: "Name contains invalid characters.",
         title: "Register",
@@ -89,7 +85,6 @@ exports.postRegister = async (req, res) => {
 
     if (existing) {
       removeUploadedFile(req.file);
-
       return res.render("auth/register", {
         error: "Email already registered.",
         title: "Register",
@@ -97,9 +92,7 @@ exports.postRegister = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(cleanPassword, 12);
-
     const avatarPath = req.file ? `/uploads/${req.file.filename}` : null;
-
     const user = await User.create({
       name: cleanName,
       email: cleanEmail,

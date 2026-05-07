@@ -83,16 +83,13 @@ async function canAccessRoom(roomId, userId) {
 }
 module.exports = (io, session) => {
   io.use(socketSession(session, { autoSave: true }));
-
   io.use((socket, next) => {
     const sess = socket.handshake.session;
-
     if (!sess || !sess.userId) {
       return next(new Error("Unauthorized"));
     }
     return next();
   });
-
   io.on("connection", async (socket) => {
     const sess = socket.handshake.session;
     const userId = sess.userId;
@@ -120,11 +117,9 @@ module.exports = (io, session) => {
     socket.on("join-room", async ({ roomId, before }) => {
       try {
         if (!roomId) return;
-
         if (!mongoose.Types.ObjectId.isValid(roomId)) {
           return;
         }
-
         if (currentRooms.has(roomId)) {
           return;
         }
@@ -158,7 +153,6 @@ module.exports = (io, session) => {
             };
           }
         }
-
         const messages = await Message.find(query)
           .populate("sender", "name avatarPath")
           .sort({ createdAt: -1 })
