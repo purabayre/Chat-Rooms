@@ -77,9 +77,9 @@
 .btn-primary {
   background: linear-gradient(135deg, #6366f1, #4f46e5);
   color: white;
-} -->
+}
 
-<!-- .btn-primary:hover {
+.btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(99,102,241,0.35);
 }
@@ -129,7 +129,6 @@
 .room-card-private {
   background: linear-gradient(135deg, #f0f4ff, #f8fbff);
   border: 1px solid #e0e7ff;
-  
 }
 
 .room-card-header {
@@ -185,198 +184,488 @@
   }
 }
 
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+  padding: 16px;
+}
+
+.pagination-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99,102,241,0.35);
+}
+
+.pagination-info {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
 </style>
 
 <div class="rooms-layout">
+
   <aside class="rooms-sidebar">
+
     <h3>New room</h3>
+
     <% if (error) { %>
       <div class="alert alert-error"><%= error %></div>
     <% } %>
+
     <form action="/chat/rooms" method="POST" class="create-room-form">
+
       <div class="form-group">
         <label for="name">Room name</label>
-        <input type="text" id="name" name="name" required maxlength="80" />
+
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+          maxlength="80"
+        />
       </div>
+
       <div class="form-group checkbox-group">
         <label>
           <input type="checkbox" name="isPrivate" />
           Private room
         </label>
       </div>
-      <button type="submit" class="btn btn-primary btn-block">Create room</button>
+
+      <button
+        type="submit"
+        class="btn btn-primary btn-block"
+      >
+        Create room
+      </button>
+
     </form>
+
   </aside>
 
   <section class="rooms-main">
+
+    <!-- PUBLIC ROOMS -->
+
     <h2>Public rooms</h2>
 
-    <% if (rooms.length === 0) { %>
-      <p class="empty-state">No rooms yet</p>
+    <% if (publicRooms.length === 0) { %>
+
+      <p class="empty-state">No public rooms yet</p>
+
     <% } else { %>
 
       <div class="rooms-grid">
-        <% rooms.forEach(room => { %>
-          <% if (!room.isPrivate) { %>
-            <a href="/chat/rooms/<%= room._id %>" class="room-card">
-              <div class="room-card-header">
-                <span class="room-name">#<%= room.name %></span>
-                <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
-              </div>
-              <div class="room-card-meta">
-                <span>by <%= room.createdBy?.name || 'Unknown' %></span>
-                <span><%= room.messageCount %> messages</span>
-              </div>
-            </a>
-          <% } %>
-        <% }) %>
-      </div>
 
-      <%
-        const privateRooms = rooms.filter(r =>
-          r.isPrivate &&
-          r.createdBy &&
-          r.createdBy._id.toString() === currentUserId
-        );
-
-        const sharedRooms = rooms.filter(r =>
-          r.isPrivate &&
-          r.createdBy &&
-          r.createdBy._id.toString() !== currentUserId
-        );
-      %>
-      <% if (privateRooms.length > 0) { %>
-  <h2 style="margin-top:2rem">Your private rooms</h2>
-
-  <div class="rooms-grid">
-    <% privateRooms.forEach(room => { %>
-      <div class="room-card room-card-private">
-
-        <div class="room-card-header">
-          <span class="room-name">🔒 <%= room.name %></span>
-          <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
-        </div>
-
-        <div class="room-card-meta">
-          <span>by <%= room.createdBy?.name || 'Unknown' %></span>
-          <span><%= room.messageCount %> messages</span>
-        </div>
-
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button 
-            class="btn btn-ghost btn-sm"
-            onclick="openShareModal('<%= room._id %>')"
-          >
-            Share
-          </button>
+        <% publicRooms.forEach(room => { %>
 
           <a
             href="/chat/rooms/<%= room._id %>"
-            class="btn btn-primary btn-sm"
+            class="room-card"
           >
-            Enter room
+
+            <div class="room-card-header">
+
+              <span class="room-name">
+                #<%= room.name %>
+              </span>
+
+              <span
+                class="room-online-badge"
+                id="online-<%= room._id %>"
+              >
+                0 online
+              </span>
+
+            </div>
+
+            <div class="room-card-meta">
+
+              <span>
+                by <%= room.createdBy?.name || 'Unknown' %>
+              </span>
+
+              <span>
+                <%= room.messageCount %> messages
+              </span>
+
+            </div>
+
           </a>
-        </div>
+
+        <% }) %>
 
       </div>
-    <% }) %>
-  </div>
-<% } %>
 
-      <% if (sharedRooms.length > 0) { %>
-        <h2 style="margin-top:2rem">Shared with you</h2>
+      <div class="pagination">
 
-        <div class="rooms-grid">
-          <% sharedRooms.forEach(room => { %>
-            <a href="/chat/rooms/<%= room._id %>" class="room-card room-card-private">
-              <div class="room-card-header">
-                <span class="room-name">🔑 <%= room.name %></span>
-                <span class="room-online-badge" id="online-<%= room._id %>">0 online</span>
-              </div>
+        <% if (hasPrevPublicPage) { %>
 
-              <div class="room-card-meta">
-                <span>by <%= room.createdBy?.name || 'Unknown' %></span>
-                <span><%= room.messageCount %> messages</span>
-              </div>
-            </a>
-          <% }) %>
-        </div>
-      <% } %>
+          <a
+            href="/chat?publicPage=<%= prevPublicPage %>&privatePage=<%= currentPrivatePage %>&sharedPage=<%= currentSharedPage %>"
+            class="pagination-btn"
+          >
+            ← Previous
+          </a>
+
+        <% } %>
+
+        <span class="pagination-info">
+          Page <%= currentPublicPage %> of <%= totalPublicPages %>
+        </span>
+
+        <% if (hasNextPublicPage) { %>
+
+          <a
+            href="/chat?publicPage=<%= nextPublicPage %>&privatePage=<%= currentPrivatePage %>&sharedPage=<%= currentSharedPage %>"
+            class="pagination-btn"
+          >
+            Next →
+          </a>
+
+        <% } %>
+
+      </div>
 
     <% } %>
+
+
+
+    <!-- PRIVATE ROOMS -->
+
+    <% if (privateRooms.length > 0) { %>
+
+      <h2 style="margin-top:2rem">Your private rooms</h2>
+
+      <div class="rooms-grid">
+
+        <% privateRooms.forEach(room => { %>
+
+          <div class="room-card room-card-private">
+
+            <div class="room-card-header">
+
+              <span class="room-name">
+                🔒 <%= room.name %>
+              </span>
+
+              <span
+                class="room-online-badge"
+                id="online-<%= room._id %>"
+              >
+                0 online
+              </span>
+
+            </div>
+
+            <div class="room-card-meta">
+
+              <span>
+                by <%= room.createdBy?.name || 'Unknown' %>
+              </span>
+
+              <span>
+                <%= room.messageCount %> messages
+              </span>
+
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:8px;">
+
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="openShareModal('<%= room._id %>')"
+              >
+                Share
+              </button>
+
+              <a
+                href="/chat/rooms/<%= room._id %>"
+                class="btn btn-primary btn-sm"
+              >
+                Enter room
+              </a>
+
+            </div>
+
+          </div>
+
+        <% }) %>
+
+      </div>
+
+      <div class="pagination">
+
+        <% if (hasPrevPrivatePage) { %>
+
+          <a
+            href="/chat?publicPage=<%= currentPublicPage %>&privatePage=<%= prevPrivatePage %>&sharedPage=<%= currentSharedPage %>"
+            class="pagination-btn"
+          >
+            ← Previous
+          </a>
+
+        <% } %>
+
+        <span class="pagination-info">
+          Page <%= currentPrivatePage %> of <%= totalPrivatePages %>
+        </span>
+
+        <% if (hasNextPrivatePage) { %>
+
+          <a
+            href="/chat?publicPage=<%= currentPublicPage %>&privatePage=<%= nextPrivatePage %>&sharedPage=<%= currentSharedPage %>"
+            class="pagination-btn"
+          >
+            Next →
+          </a>
+
+        <% } %>
+
+      </div>
+
+    <% } %>
+
+
+
+    <!-- SHARED ROOMS -->
+
+    <% if (sharedRooms.length > 0) { %>
+
+      <h2 style="margin-top:2rem">Shared with you</h2>
+
+      <div class="rooms-grid">
+
+        <% sharedRooms.forEach(room => { %>
+
+          <a
+            href="/chat/rooms/<%= room._id %>"
+            class="room-card room-card-private"
+          >
+
+            <div class="room-card-header">
+
+              <span class="room-name">
+                🔑 <%= room.name %>
+              </span>
+
+              <span
+                class="room-online-badge"
+                id="online-<%= room._id %>"
+              >
+                0 online
+              </span>
+
+            </div>
+
+            <div class="room-card-meta">
+
+              <span>
+                by <%= room.createdBy?.name || 'Unknown' %>
+              </span>
+
+              <span>
+                <%= room.messageCount %> messages
+              </span>
+
+            </div>
+
+          </a>
+
+        <% }) %>
+
+      </div>
+
+      <!-- SHARED PAGINATION -->
+
+      <div class="pagination">
+
+        <% if (hasPrevSharedPage) { %>
+
+          <a
+            href="/chat?publicPage=<%= currentPublicPage %>&privatePage=<%= currentPrivatePage %>&sharedPage=<%= prevSharedPage %>"
+            class="pagination-btn"
+          >
+            ← Previous
+          </a>
+
+        <% } %>
+
+        <span class="pagination-info">
+          Page <%= currentSharedPage %> of <%= totalSharedPages %>
+        </span>
+
+        <% if (hasNextSharedPage) { %>
+
+          <a
+            href="/chat?publicPage=<%= currentPublicPage %>&privatePage=<%= currentPrivatePage %>&sharedPage=<%= nextSharedPage %>"
+            class="pagination-btn"
+          >
+            Next →
+          </a>
+
+        <% } %>
+
+      </div>
+
+    <% } %>
+
   </section>
+
 </div>
 
-<div id="shareModal" style="display:none; position:fixed; top:25%; left:50%; transform:translateX(-50%); background:#fff; padding:20px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.2); width:300px;">
+<div
+  id="shareModal"
+  style="
+    display:none;
+    position:fixed;
+    top:25%;
+    left:50%;
+    transform:translateX(-50%);
+    background:#fff;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    width:300px;
+  "
+>
+
   <h4>Select user</h4>
 
-  <select id="userSelect" style="width:100%; margin-bottom:10px;"></select>
+  <select
+    id="userSelect"
+    style="width:100%; margin-bottom:10px;"
+  ></select>
 
-  <button class="btn btn-primary btn-sm" onclick="shareRoom()">Share</button>
-  <button class="btn btn-ghost btn-sm" onclick="closeShareModal()">Cancel</button>
+  <button
+    class="btn btn-primary btn-sm"
+    onclick="shareRoom()"
+  >
+    Share
+  </button>
+
+  <button
+    class="btn btn-ghost btn-sm"
+    onclick="closeShareModal()"
+  >
+    Cancel
+  </button>
+
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
+
 const socket = io();
 
 socket.emit("get-room-counts");
 
 socket.on("rooms-online-update", (rooms) => {
+
   rooms.forEach(({ roomId, count }) => {
-    const el = document.getElementById("online-" + roomId);
-    if (el) el.textContent = count + " online";
+
+    const el =
+      document.getElementById("online-" + roomId);
+
+    if (el) {
+      el.textContent = count + " online";
+    }
+
   });
+
 });
 
 let selectedRoomId = null;
 
 async function openShareModal(roomId) {
+
   selectedRoomId = roomId;
 
   const res = await fetch("/chat/users");
+
   const users = await res.json();
 
-  const select = document.getElementById("userSelect");
+  const select =
+    document.getElementById("userSelect");
+
   select.innerHTML = "";
 
   users.forEach(user => {
-    const option = document.createElement("option");
+
+    const option =
+      document.createElement("option");
+
     option.value = user._id;
+
     option.textContent = user.name;
+
     select.appendChild(option);
+
   });
 
-  document.getElementById("shareModal").style.display = "block";
+  document.getElementById("shareModal")
+    .style.display = "block";
+
 }
 
 function closeShareModal() {
-  document.getElementById("shareModal").style.display = "none";
+
+  document.getElementById("shareModal")
+    .style.display = "none";
+
 }
 
 async function shareRoom() {
-  const userIdToShare = document.getElementById("userSelect").value;
+
+  const userIdToShare =
+    document.getElementById("userSelect").value;
 
   await fetch("/chat/share-room", {
+
     method: "POST",
+
     headers: {
       "Content-Type": "application/json",
     },
+
     body: JSON.stringify({
       roomId: selectedRoomId,
       userIdToShare,
     }),
+
   });
 
   alert("Room shared!");
+
   closeShareModal();
+
 }
 
 socket.on("roomShared", (room) => {
-  alert("New room shared: " + room.name);
-  location.reload();
-});
-</script>
 
+  alert("New room shared: " + room.name);
+
+  location.reload();
+
+});
+
+</script>
 
 <%- include('../partials/footer') %>

@@ -19,6 +19,7 @@
     "dotenv": "^17.4.2",
     "ejs": "^5.0.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.1",
     "express-session": "^1.19.0",
     "express-socket.io-session": "^1.3.5",
     "mongo-session": "^0.2.15",

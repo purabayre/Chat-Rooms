@@ -3,6 +3,7 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const Room = require("../models/Room");
 const sanitizeHtml = require("sanitize-html");
+const mongoose = require("mongoose");
 
 const roomMembers = new Map();
 
@@ -11,11 +12,9 @@ function getRoomUsers(roomId) {
     ? [...roomMembers.get(roomId).values()].map((m) => m.userName)
     : [];
 }
-
 function getRoomCount(io, roomId) {
   return io.sockets.adapter.rooms.get(roomId)?.size || 0;
 }
-
 async function broadcastRoomCounts(io) {
   try {
     const rooms = await Room.find({}, "_id").lean();
@@ -27,7 +26,6 @@ async function broadcastRoomCounts(io) {
         count: getRoomCount(io, id),
       };
     });
-
     io.emit("rooms-online-update", payload);
   } catch (err) {
     console.error("broadcastRoomCounts error:", err);
@@ -35,10 +33,10 @@ async function broadcastRoomCounts(io) {
 }
 
 function addMember(roomId, info) {
-  if (!roomMembers.has(roomId)) roomMembers.set(roomId, new Map());
-
+  if (!roomMembers.has(roomId)) {
+    roomMembers.set(roomId, new Map());
+  }
   const map = roomMembers.get(roomId);
-
   if (!map.has(info.socketId)) {
     map.set(info.socketId, info);
   }
@@ -46,16 +44,14 @@ function addMember(roomId, info) {
 
 function removeMember(roomId, socketId) {
   if (!roomMembers.has(roomId)) return;
-
   const map = roomMembers.get(roomId);
   map.delete(socketId);
-
-  if (map.size === 0) roomMembers.delete(roomId);
+  if (map.size === 0) {
+    roomMembers.delete(roomId);
+  }
 }
-
 function findUserByName(roomId, name) {
   if (!roomMembers.has(roomId)) return null;
-
   for (const member of roomMembers.get(roomId).values()) {
     if (
       member.userName &&
@@ -66,27 +62,45 @@ function findUserByName(roomId, name) {
   }
   return null;
 }
+async function canAccessRoom(roomId, userId) {
+  if (!mongoose.Types.ObjectId.isValid(roomId)) {
+    return false;
+  }
+  const room = await Room.findById(roomId).lean();
+  if (!room) {
+    return false;
+  }
+  if (!room.isPrivate) {
+    return true;
+  }
+  const isOwner =
+    room.createdBy && room.createdBy.toString() === userId.toString();
+  const isInvited =
+    Array.isArray(room.invitedUsers) &&
+    room.invitedUsers.some((id) => id.toString() === userId.toString());
 
+  return isOwner || isInvited;
+}
 module.exports = (io, session) => {
   io.use(socketSession(session, { autoSave: true }));
 
   io.use((socket, next) => {
     const sess = socket.handshake.session;
+
     if (!sess || !sess.userId) {
       return next(new Error("Unauthorized"));
     }
-    next();
+    return next();
   });
 
   io.on("connection", async (socket) => {
     const sess = socket.handshake.session;
     const userId = sess.userId;
-    let currentRooms = new Set();
-
+    const currentRooms = new Set();
     let currentUser;
+
     try {
       currentUser = await User.findById(userId).lean();
-
       if (!currentUser) {
         socket.disconnect(true);
         return;
@@ -96,42 +110,52 @@ module.exports = (io, session) => {
       socket.disconnect(true);
       return;
     }
-
     socket.join(userId.toString());
-
     socket.on("get-room-counts", async () => {
       await broadcastRoomCounts(io);
     });
-
     socket.on("join-personal-room", () => {
       socket.join(userId.toString());
     });
-
     socket.on("join-room", async ({ roomId, before }) => {
       try {
         if (!roomId) return;
 
-        if (currentRooms.has(roomId)) return;
+        if (!mongoose.Types.ObjectId.isValid(roomId)) {
+          return;
+        }
 
+        if (currentRooms.has(roomId)) {
+          return;
+        }
+        const hasAccess = await canAccessRoom(roomId, userId);
+        if (!hasAccess) {
+          socket.emit("error-message", {
+            message: "Access denied",
+          });
+          return;
+        }
         const roomExists = await Room.findById(roomId).lean();
-        if (!roomExists) return;
-
+        if (!roomExists) {
+          return;
+        }
         socket.join(roomId);
         currentRooms.add(roomId);
-
         addMember(roomId, {
           socketId: socket.id,
           userId,
           userName: currentUser.name,
           avatarPath: currentUser.avatarPath,
         });
-
-        const query = { room: roomId };
-
+        const query = {
+          room: roomId,
+        };
         if (before) {
           const beforeDate = new Date(before);
-          if (!isNaN(beforeDate)) {
-            query.createdAt = { $lt: beforeDate };
+          if (!isNaN(beforeDate.getTime())) {
+            query.createdAt = {
+              $lt: beforeDate,
+            };
           }
         }
 
@@ -142,18 +166,15 @@ module.exports = (io, session) => {
 
         const cleanMessages = messages.map((m) => {
           const obj = m.toObject();
-
           if (!obj.reactions) {
             obj.reactions = {};
           } else if (obj.reactions instanceof Map) {
             obj.reactions = Object.fromEntries(obj.reactions);
           }
-
           return obj;
         });
 
         cleanMessages.reverse();
-
         socket.emit("room-history", {
           messages: cleanMessages,
           hasMore: messages.length === 50,
@@ -161,56 +182,59 @@ module.exports = (io, session) => {
             ? messages[messages.length - 1].createdAt
             : null,
         });
-
-        socket.to(roomId).emit("user-joined", { name: currentUser.name });
-
+        socket.to(roomId).emit("user-joined", {
+          name: currentUser.name,
+        });
         io.to(roomId).emit("online-users", {
           roomId,
           users: getRoomUsers(roomId),
           count: getRoomCount(io, roomId),
         });
-
         await broadcastRoomCounts(io);
       } catch (err) {
         console.error("join-room error:", err);
       }
     });
-
     socket.on("load-older-messages", async ({ roomId, before }) => {
       try {
-        if (!roomId || !before) return;
-
+        if (!roomId || !before) {
+          return;
+        }
+        if (!mongoose.Types.ObjectId.isValid(roomId)) {
+          return;
+        }
+        const hasAccess = await canAccessRoom(roomId, userId);
+        if (!hasAccess) {
+          return;
+        }
         const beforeDate = new Date(before);
-        if (isNaN(beforeDate)) return;
-
+        if (isNaN(beforeDate.getTime())) {
+          return;
+        }
         const query = {
           room: roomId,
-          createdAt: { $lt: beforeDate },
+          createdAt: {
+            $lt: beforeDate,
+          },
         };
-
         const messages = await Message.find(query)
           .populate("sender", "name avatarPath")
           .sort({ createdAt: -1 })
           .limit(50);
 
         const hasMore = messages.length === 50;
-
         const trimmedMessages = messages.slice(0, 50);
-
         const cleanMessages = trimmedMessages.map((m) => {
           const obj = m.toObject();
-
           if (!obj.reactions) {
             obj.reactions = {};
           } else if (obj.reactions instanceof Map) {
             obj.reactions = Object.fromEntries(obj.reactions);
           }
-
           return obj;
         });
 
         cleanMessages.reverse();
-
         socket.emit("older-messages", {
           messages: cleanMessages,
           hasMore,
@@ -222,42 +246,45 @@ module.exports = (io, session) => {
         console.error("load older messages error:", err);
       }
     });
-
     socket.on("send-message", async ({ roomId, text }) => {
       try {
-        if (!roomId || !text) return;
-
+        if (!roomId || !text) {
+          return;
+        }
+        if (!mongoose.Types.ObjectId.isValid(roomId)) {
+          return;
+        }
+        const hasAccess = await canAccessRoom(roomId, userId);
+        if (!hasAccess) {
+          return;
+        }
         const clean = sanitizeHtml(text, {
           allowedTags: [],
           allowedAttributes: {},
         }).trim();
-
-        if (!clean || clean.length > 5000) return;
-
+        if (!clean || clean.length > 5000) {
+          return;
+        }
         const mentionRegex = /@([a-zA-Z0-9_]+)/g;
         let match;
         const mentionedUsersMap = new Map();
-
         while ((match = mentionRegex.exec(clean)) !== null) {
           const username = match[1];
+
           const user = findUserByName(roomId, username);
 
           if (user) {
             mentionedUsersMap.set(user.userId.toString(), user);
           }
         }
-
         const mentionedUsers = [...mentionedUsersMap.values()];
-
         const message = await Message.create({
           room: roomId,
           sender: userId,
           text: clean,
           reactions: new Map(),
         });
-
         const populated = await message.populate("sender", "name avatarPath");
-
         io.to(roomId).emit("new-message", {
           _id: populated._id,
           sender: populated.sender,
@@ -265,7 +292,6 @@ module.exports = (io, session) => {
           reactions: {},
           createdAt: populated.createdAt,
         });
-
         for (const user of mentionedUsers) {
           io.to(user.userId.toString()).emit("mention-notification", {
             roomId,
@@ -277,36 +303,43 @@ module.exports = (io, session) => {
         console.error("message error", err);
       }
     });
-
     socket.on("react-message", async ({ messageId, emoji }) => {
       try {
-        if (!messageId || !emoji) return;
-
+        if (!messageId || !emoji) {
+          return;
+        }
+        if (!mongoose.Types.ObjectId.isValid(messageId)) {
+          return;
+        }
         const msg = await Message.findById(messageId);
-        if (!msg) return;
-
+        if (!msg) {
+          return;
+        }
+        const hasAccess = await canAccessRoom(msg.room.toString(), userId);
+        if (!hasAccess) {
+          return;
+        }
         if (!(msg.reactions instanceof Map)) {
           msg.reactions = new Map(msg.reactions || []);
         }
-
         const userIdStr = userId.toString();
-
         let users = msg.reactions.get(emoji);
-
-        if (!Array.isArray(users)) users = [];
-
+        if (!Array.isArray(users)) {
+          users = [];
+        }
         const index = users.indexOf(userIdStr);
-
-        if (index > -1) users.splice(index, 1);
-        else users.push(userIdStr);
-
-        if (users.length === 0) msg.reactions.delete(emoji);
-        else msg.reactions.set(emoji, users);
-
+        if (index > -1) {
+          users.splice(index, 1);
+        } else {
+          users.push(userIdStr);
+        }
+        if (users.length === 0) {
+          msg.reactions.delete(emoji);
+        } else {
+          msg.reactions.set(emoji, users);
+        }
         await msg.save();
-
         const formattedReactions = Object.fromEntries(msg.reactions || []);
-
         io.to(msg.room.toString()).emit("message-reaction-updated", {
           messageId,
           reactions: formattedReactions,
@@ -315,43 +348,62 @@ module.exports = (io, session) => {
         console.error("reaction error:", err);
       }
     });
-
-    socket.on("typing", ({ roomId }) => {
-      if (!roomId) return;
-      socket.to(roomId).emit("typing", { name: currentUser.name });
+    socket.on("typing", async ({ roomId }) => {
+      if (!roomId) {
+        return;
+      }
+      const hasAccess = await canAccessRoom(roomId, userId);
+      if (!hasAccess) {
+        return;
+      }
+      socket.to(roomId).emit("typing", {
+        name: currentUser.name,
+      });
     });
-
-    socket.on("stop-typing", ({ roomId }) => {
-      if (!roomId) return;
-      socket.to(roomId).emit("stop-typing", { name: currentUser.name });
+    socket.on("stop-typing", async ({ roomId }) => {
+      if (!roomId) {
+        return;
+      }
+      const hasAccess = await canAccessRoom(roomId, userId);
+      if (!hasAccess) {
+        return;
+      }
+      socket.to(roomId).emit("stop-typing", {
+        name: currentUser.name,
+      });
     });
-
-    socket.on("leave-room", ({ roomId }) => {
-      if (!roomId) return;
-      handleLeave(roomId);
+    socket.on("leave-room", async ({ roomId }) => {
+      if (!roomId) {
+        return;
+      }
+      await handleLeave(roomId);
     });
 
     socket.on("disconnect", async () => {
-      for (const roomId of currentRooms) {
+      for (const roomId of [...currentRooms]) {
         await handleLeave(roomId);
       }
     });
 
     async function handleLeave(roomId) {
       try {
-        if (!currentRooms.has(roomId)) return;
-
+        if (!currentRooms.has(roomId)) {
+          return;
+        }
         socket.leave(roomId);
         currentRooms.delete(roomId);
         removeMember(roomId, socket.id);
-
-        socket.to(roomId).emit("user-left", { name: currentUser.name });
+        socket.to(roomId).emit("user-left", {
+          name: currentUser.name,
+        });
 
         io.to(roomId).emit("online-users", {
           roomId,
           users: getRoomUsers(roomId),
           count: getRoomCount(io, roomId),
         });
+
+        await broadcastRoomCounts(io);
       } catch (err) {
         console.error("handleLeave error:", err);
       }

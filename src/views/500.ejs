@@ -1,7 +1,158 @@
 <%- include('partials/header') %>
-<div class="error-page">
-  <h1>500</h1>
-  <p>Something went wrong on our end. Please try again.</p>
-  <a href="/chat" class="btn btn-primary">Go to rooms</a>
+
+<style>
+  .error-container {
+    min-height: 85vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    background: linear-gradient(120deg, #eef2f7, #f8fafc);
+    font-family: "Inter", "Segoe UI", sans-serif;
+  }
+
+  .error-card {
+    width: 100%;
+    max-width: 560px;
+    text-align: center;
+    padding: 50px 38px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .error-icon {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 46px;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #dc2626;
+    box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.08);
+  }
+
+  .error-code {
+    font-size: 110px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    /* -webkit-background-clip: text; */
+    -webkit-text-fill-color: transparent;
+  }
+
+  .error-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 14px;
+  }
+
+  .error-text {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #6b7280;
+    margin-bottom: 34px;
+  }
+
+  .error-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.25s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(99, 102, 241, 0.35);
+  }
+
+  .btn-ghost {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .btn-ghost:hover {
+    background: #e5e7eb;
+  }
+
+  .error-details {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 13px;
+    color: #9ca3af;
+  }
+
+  @media (max-width: 640px) {
+    .error-card {
+      padding: 40px 24px;
+    }
+
+    .error-code {
+      font-size: 84px;
+    }
+
+    .error-title {
+      font-size: 25px;
+    }
+
+    .error-actions {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="error-container">
+  <div class="error-card">
+    <div class="error-icon">⚡</div>
+
+    <div class="error-code">500</div>
+
+    <h1 class="error-title">Internal server error</h1>
+
+    <p class="error-text">
+      Something went wrong on our end. The server encountered an unexpected
+      issue. Please try again in a moment.
+    </p>
+
+    <div class="error-actions">
+      <a href="/chat" class="btn btn-primary"> Go to rooms </a>
+
+      <a href="javascript:location.reload()" class="btn btn-ghost"> Retry </a>
+    </div>
+
+    <div class="error-details">
+      If the problem continues, try refreshing the page or returning later.
+    </div>
+  </div>
 </div>
+
 <%- include('partials/footer') %>
